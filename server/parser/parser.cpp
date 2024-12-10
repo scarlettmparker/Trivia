@@ -11,7 +11,6 @@
 namespace parser {
   /**
    * Free the memory allocated for the question and its answers.
-   *
    * @param q Question struct to free.
    */
   void free_question(Question& q) {
@@ -24,7 +23,6 @@ namespace parser {
 
   /**
    * Free the memory allocated for the category and its questions.
-   *
    * @param cat Category struct to free.
    */
   void free_category(Category& cat) {
@@ -67,9 +65,8 @@ namespace parser {
   }
 
   /**
-   * Parse the category file and return the category struct
-   * Category struct consists of the category name and the questions,
-   * which consists of the question text, the answers, the number of answers,
+   * Parse the category file and return the category struct.
+   * This reads the category file line by line and parses the questions and answers.
    *
    * @param folder_dir Directory of the folder containing the category file.
    * @param category Name of the category file.
@@ -90,7 +87,7 @@ namespace parser {
       // file doesn't exist, return nothing
       Category no_category;
       no_category.category = "NO_CATEGORY";
-      no_category.questions = nullptr;
+      file.close();
       return no_category;
     }
 
@@ -153,5 +150,19 @@ namespace parser {
     file.close();
     delete[] file_loc;
     return parsed_category;
+  }
+
+  /**
+   * Parse the categories and return the category structs.
+   * @param folder_dir Directory of the folder containing the category files.
+   * @param categories Array of category names.
+   * @param categories_c Number of categories.
+   */
+  Category * parse_categories(const char * folder_dir, const char ** categories, int categories_c) {
+    Category * parsed_categories = (Category *) malloc(sizeof(Category) * categories_c);
+    for (int i = 0; i < categories_c; i++) {
+      parsed_categories[i] = parse_category(folder_dir, categories[i]);
+    }
+    return parsed_categories;
   }
 }

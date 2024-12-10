@@ -1,0 +1,3 @@
+/mnt/c/Users/scarw/Documents/GitHub/Trivia/server/build/CMakeFiles/TriviaBackend.dir
+/mnt/c/Users/scarw/Documents/GitHub/Trivia/server/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/scarw/Documents/GitHub/Trivia/server/build/CMakeFiles/rebuild_cache.dir

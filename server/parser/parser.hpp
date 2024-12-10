@@ -20,5 +20,6 @@ namespace parser {
   void insert_to_category(Category& cat, Question& question, int idx);
   void create_question(Question& q, const char * question, const char** answers, int answer_c, int answer_idx);
   Category parse_category(const char * folder_dir, const char * category);
+  Category * parse_categories(const char * folder_dir, const char ** category_names, int category_c);
 }
 #endif
