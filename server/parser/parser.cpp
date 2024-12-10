@@ -1,14 +1,33 @@
-#include <iostream>
-#include <fstream>
-#include <string>
-#include <cstring>
-#include <cctype>
 #include "parser.hpp"
 
 #define QUESTION_PREFIX "#Q"
 #define ANSWER_PREFIX "^"
 
 namespace parser {
+  /**
+   * Fetch the category struct and return/construct a JSON object.
+   * @param cat Category struct to fetch.
+   */
+  nlohmann::json fetch_category(Category& cat) {
+    nlohmann::json json_response;
+    json_response["category"] = cat.category;
+    json_response["questions"] = nlohmann::json::array();
+
+    for (int i = 0; i < cat.questions_c; i++) {
+      Question q = cat.questions[i];
+      nlohmann::json question;
+      question["question"] = q.question;
+      question["answers"] = nlohmann::json::array();
+
+      for (int j = 0; j < q.answers_c; j++) {
+        question["answers"].push_back(q.answers[j]);
+      }
+
+      json_response["questions"].push_back(question);
+    }
+    return json_response;
+  }
+
   /**
    * Free the memory allocated for the question and its answers.
    * @param q Question struct to free.

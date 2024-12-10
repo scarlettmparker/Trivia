@@ -6,13 +6,13 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/config.hpp>
-#include <nlohmann/json.hpp>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
 #include <map>
 #include <string>
+
 #include "parser/parser.hpp"
 
 namespace beast = boost::beast;
@@ -22,6 +22,7 @@ using tcp = net::ip::tcp;
 
 namespace server {
   std::map<std::string, std::string> parse_query_string(std::string_view query);
+  http::response<http::string_body> make_bad_request_response(const std::string& message, const http::request<http::string_body>& req);
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req);
 
   class Session : public std::enable_shared_from_this<Session> {

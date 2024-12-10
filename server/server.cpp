@@ -23,56 +23,62 @@ namespace server {
     return params;
   }
 
+  http::response<http::string_body> make_bad_request_response(
+    const std::string& message, 
+    const http::request<http::string_body>& req) {
+    
+    http::response<http::string_body> res{http::status::bad_request, req.version()};
+    res.set(http::field::server, "Beast");
+    res.set(http::field::content_type, "application/json");
+    
+    nlohmann::json error_response = {
+        {"status", "error"},
+        {"message", message}
+    };
+    
+    res.body() = error_response.dump();
+    res.keep_alive(req.keep_alive());
+    res.prepare_payload();
+    return res;
+  }
+
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
-    std::cout << req.target().substr(0, 14) << std::endl;
     if (req.method() == http::verb::get && req.target().substr(0, 16) == "/api/getcategory") {
       std::string target_str(req.target());
       auto target = std::string_view(target_str);
       auto query_pos = target.find('?');
 
       std::map<std::string, std::string> params;
+      if (query_pos == std::string::npos) {
+        std::cout << "No query string found in URL" << std::endl;
+        return make_bad_request_response("No query parameters provided", req);
+      }
+        
+      auto query = target.substr(query_pos + 1);
+      params = parse_query_string(query);
+      if (params.find("category") == params.end()) {
+        std::cout << "Missing category parameter" << std::endl;
+        return make_bad_request_response("Missing category parameter", req);
+      }
+        
+      std::string category = params["category"];
+      std::cout << "Category requested: " << category << std::endl;
+      parser::Category cat = parser::parse_category("../questions/", category.c_str());
+      if (strncmp(cat.category, "NO_CATEGORY", 10) == 0) {
+        return make_bad_request_response("Category not found", req);
+      }
+        
       http::response<http::string_body> res{http::status::ok, req.version()};
       res.set(http::field::server, "Beast");
       res.set(http::field::content_type, "application/json");
-        
-      if (query_pos != std::string::npos) {
-        auto query = target.substr(query_pos + 1);
-        params = parse_query_string(query);
-            
-        if (params.find("category") != params.end()) {
-          std::string category = params["category"];
-          std::cout << "Category requested: " << category << std::endl;
-
-          nlohmann::json json_response = {
-            {"status", "success"},
-            {"category", category},
-            {"data", {{"id", 1}, {"name", category}, {"description", "Category description"}}}
-          };
-                
-          res.body() = json_response.dump();
-        } else {
-          res.result(http::status::bad_request);
-          nlohmann::json error_response = {
-            {"status", "error"},
-            {"message", "Missing category parameter"}
-          };
-          res.body() = error_response.dump();
-        }
-      } else {
-        res.result(http::status::bad_request);
-        nlohmann::json error_response = {
-          {"status", "error"},
-          {"message", "No query parameters provided"}
-        };
-        res.body() = error_response.dump();
-      }
-        
+      res.body() = parser::fetch_category(cat).dump();
       res.keep_alive(req.keep_alive());
       res.prepare_payload();
+
       return res;
     }
 
-    return http::response<http::string_body>{http::status::bad_request, req.version()};
+    return make_bad_request_response("Invalid endpoint", req);
   }
 
   Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}

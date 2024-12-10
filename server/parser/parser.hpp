@@ -1,6 +1,18 @@
 #ifndef PARSER_HEADER
 #define PARSER_HEADER
 
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <cstring>
+#include <cctype>
+#include <boost/beast/core.hpp>
+#include <boost/beast/http.hpp>
+#include <nlohmann/json.hpp>
+
+namespace beast = boost::beast;
+namespace http = beast::http;
+
 namespace parser {
   struct Question{
     char * question;
@@ -15,6 +27,7 @@ namespace parser {
     int questions_c;
   };
 
+  nlohmann::json fetch_category(Category& cat);
   void free_question(Question& q);
   void free_category(Category& cat);
   void insert_to_category(Category& cat, Question& question, int idx);
