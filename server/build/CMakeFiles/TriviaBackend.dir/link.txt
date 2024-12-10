@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/TriviaBackend.dir/main.cpp.o CMakeFiles/TriviaBackend.dir/server.cpp.o CMakeFiles/TriviaBackend.dir/parser/parser.cpp.o -o TriviaBackend  /usr/lib/x86_64-linux-gnu/libboost_system.so.1.74.0 /usr/lib/x86_64-linux-gnu/libboost_filesystem.so.1.74.0 
