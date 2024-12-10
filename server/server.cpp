@@ -44,6 +44,8 @@ namespace server {
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
     if (req.method() == http::verb::get && req.target().substr(0, 16) == "/api/getcategory") {
+      clock_t begin = clock();
+
       std::string target_str(req.target());
       auto target = std::string_view(target_str);
       auto query_pos = target.find('?');
@@ -71,9 +73,15 @@ namespace server {
       http::response<http::string_body> res{http::status::ok, req.version()};
       res.set(http::field::server, "Beast");
       res.set(http::field::content_type, "application/json");
+      // std::cout << parser::fetch_category(cat).dump() << std::endl;
+      
       res.body() = parser::fetch_category(cat).dump();
       res.keep_alive(req.keep_alive());
       res.prepare_payload();
+
+      clock_t end = clock();
+      double elapsed_secs = double(end - begin) * 1000 / CLOCKS_PER_SEC;
+      std::cout << "Request took " << elapsed_secs << "ms" << std::endl;
 
       return res;
     }

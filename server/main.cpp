@@ -8,7 +8,6 @@ int main() {
     net::io_context ioc{1};
     auto listener = std::make_shared<server::Listener>(ioc, tcp::endpoint{address, port});
     std::cout << "Server started on " << address << ":" << port << std::endl;
-    
     ioc.run();
   } catch (const std::exception& e) {
     std::cerr << "Error: " << e.what() << std::endl;
