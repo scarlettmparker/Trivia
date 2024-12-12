@@ -10,6 +10,9 @@ app.config.timestamp_*.js
 # Environment
 .env
 .env*.local
+/server/env/.env.private
+/server/build/env_file_dependency
+/server/build/env
 
 # dependencies
 /node_modules

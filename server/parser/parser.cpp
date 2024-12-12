@@ -11,19 +11,19 @@ namespace parser {
   nlohmann::json fetch_category(Category& cat) {
     nlohmann::json json_response;
     json_response["category"] = cat.category;
-    json_response["questions"] = nlohmann::json::array();
+    auto& questions_array = json_response["questions"];
 
     for (int i = 0; i < cat.questions_c; i++) {
-      Question q = cat.questions[i];
+      const Question& q = cat.questions[i];
       nlohmann::json question;
+      auto& answers_array = question["answers"];
       question["question"] = q.question;
-      question["answers"] = nlohmann::json::array();
+      question["correct_answer"] = q.answer_idx;
 
+      questions_array.push_back(std::move(question));
       for (int j = 0; j < q.answers_c; j++) {
-        question["answers"].push_back(q.answers[j]);
+        answers_array.push_back(q.answers[j]);
       }
-
-      json_response["questions"].push_back(question);
     }
     return json_response;
   }
@@ -125,7 +125,7 @@ namespace parser {
         line[len - 1] = '\0';
       }
   
-      if (strncmp(line, QUESTION_PREFIX, strlen(QUESTION_PREFIX)) == 0) {
+      if(memcmp(line, QUESTION_PREFIX, strlen(QUESTION_PREFIX)) == 0) {
         if (current_question.answers_c > 0) {
           insert_to_category(parsed_category, current_question);
           current_question = {nullptr, nullptr, 0, -1};
@@ -135,11 +135,11 @@ namespace parser {
         curr_answer_c = 0;
         free(current_answer);
         current_answer = nullptr;
-      } else if (strncmp(line, ANSWER_PREFIX, strlen(ANSWER_PREFIX)) == 0) {
+      } else if (memcmp(line, ANSWER_PREFIX, strlen(ANSWER_PREFIX)) == 0) {
         free(current_answer);
         current_answer = strdup(line + strlen(ANSWER_PREFIX) + 1);
-      } else if (std::isupper(line[0])) {
-        if (current_answer != nullptr) {
+      } else if (isupper(line[0])) {
+        if (current_answer) {
           char * answer = strdup(line + 2);
           insert_answer_to_question(current_question, answer);
           if (strcmp(answer, current_answer) == 0) {

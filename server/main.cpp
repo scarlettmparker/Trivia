@@ -1,4 +1,5 @@
 #include "server.hpp"
+#include "postgres.hpp"
 
 int main() {
   try {
@@ -7,6 +8,8 @@ int main() {
 
     net::io_context ioc{1};
     auto listener = std::make_shared<server::Listener>(ioc, tcp::endpoint{address, port});
+    
+    postgres::init_connection();
     std::cout << "Server started on " << address << ":" << port << std::endl;
     ioc.run();
   } catch (const std::exception& e) {
