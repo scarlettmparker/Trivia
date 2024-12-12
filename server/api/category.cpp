@@ -1,10 +1,10 @@
-#include "category.hpp"
+#include "api.hpp"
 
 using namespace postgres;
 class CategoryHandler : public RequestHandler {
   public:
     std::string get_endpoint() const override {
-        return "/api/category";
+      return "/api/category";
     }
 
     /**
@@ -63,6 +63,11 @@ class CategoryHandler : public RequestHandler {
     * @return 1 if the category was deleted, 0 otherwise.
     */
     int delete_category(const char * category_name, int verbose) {
+      if (c == nullptr) {
+        verbose && std::cerr << "Database connection is not initialized" << std::endl;
+        return 0;
+      }
+
       try {
         pqxx::work txn(*c);
         pqxx::result r = txn.exec_prepared("delete_category", category_name);
@@ -89,7 +94,7 @@ class CategoryHandler : public RequestHandler {
        */
 
       if (req.method() == http::verb::get) {
-        auto category_opt = request::parse_category_from_request(req);
+        auto category_opt = request::parse_from_request(req, "category_name");
         if (!category_opt) {
             return request::make_bad_request_response("Invalid category parameters", req);
         }
@@ -118,7 +123,7 @@ class CategoryHandler : public RequestHandler {
         }
 
         nlohmann::json response_json;
-        if (!(postgres::create_category(json_request["category_name"].get<std::string>().c_str()))) {
+        if (!(create_category(json_request["category_name"].get<std::string>().c_str(), 0))) {
           return request::make_bad_request_response("Category already exists", req);
         }
 
@@ -130,14 +135,14 @@ class CategoryHandler : public RequestHandler {
          * -------------- DELETE CATEGORY --------------
          */
 
-        auto category_opt = request::parse_category_from_request(req);
+        auto category_opt = request::parse_from_request(req, "category_name");
         if (!category_opt) {
           return request::make_bad_request_response("Invalid category parameters", req);
         }
 
         std::string category = *category_opt;
         nlohmann::json response_json;
-        if (postgres::delete_category(category.c_str())) {
+        if (delete_category(category.c_str(), 1)) {
           response_json["message"] = "Category deleted successfully";
           response_json["category_name"] = category;
           return request::make_ok_request_response(response_json.dump(4), req);
@@ -150,6 +155,6 @@ class CategoryHandler : public RequestHandler {
     }
 };
 
-extern "C" RequestHandler* create_handler() {
-    return new CategoryHandler();
+extern "C" RequestHandler* create_category_handler() {
+  return new CategoryHandler();
 }

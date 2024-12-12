@@ -33,3 +33,4 @@ Thumbs.db
 
 # Build
 /server/build
+/server/api/*.so

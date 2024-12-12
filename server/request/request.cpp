@@ -30,12 +30,12 @@ namespace request {
   }
 
   /**
-   * Parse the category parameter from a request. This ensures that the category
+   * Parse the given parameter from a request. This ensures that the parameter
    * parameter appears in the query string. If it does not, an empty optional is returned.
    *
-   * @param req Request to parse the category from.
+   * @param req Request to parse the parameter from.
    */
-  std::optional<std::string> parse_category_from_request(const http::request<http::string_body>& req) {
+  std::optional<std::string> parse_from_request(const http::request<http::string_body>& req, const std::string& parameter) {
     std::string target_str(req.target());
     std::string_view target(target_str);
     auto query_pos = target.find('?');
@@ -48,12 +48,12 @@ namespace request {
     auto query = target.substr(query_pos + 1);
     auto params = parse_query_string(std::string(query));
 
-    if (params.find("category_name") == params.end()) {
+    if (params.find(parameter) == params.end()) {
         std::cout << "Missing category parameter" << std::endl;
         return std::nullopt;
     }
-
-    return params["category_name"];
+    
+    return params[parameter];
   }
 
   /**

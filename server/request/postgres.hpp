@@ -16,9 +16,7 @@ namespace postgres {
   void init_connection();
   void close_connection();
 
-  int select_category(const char * category_name, int verbose = 0);
-  int create_category(const char * category_name, int verbose = 0);
-  int delete_category(const char * category_name, int verbose = 0);
+  int select_category(int category_id, int verbose=0);
 }
 
 #endif

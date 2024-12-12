@@ -10,16 +10,24 @@ namespace postgres {
    */
   void prepare_statements() {
     pqxx::work txn(*c);
-    txn.conn().prepare("select_category", 
-      "SELECT id FROM public.\"Category\" WHERE category_name = $1 LIMIT 1;");
+    // CATEGORY ENDPOINTS
     txn.conn().prepare("create_category", 
       "INSERT INTO public.\"Category\" (category_name) VALUES ($1) "
       "ON CONFLICT (category_name) DO NOTHING RETURNING id;");
     txn.conn().prepare("delete_category", 
       "DELETE FROM public.\"Category\" WHERE category_name = $1 RETURNING id;");
+      
+    // QUESTION ENDPOINTS
+    txn.conn().prepare("select_question", 
+      "SELECT id FROM public.\"Question\" WHERE id = $1 LIMIT 1;");
+    txn.conn().prepare("create_question", 
+      "INSERT INTO public.\"Question\" (question, answers, correct_answer, category_id) "
+      "VALUES ($1, $2, $3, $4);");
+    txn.conn().prepare("delete_question", 
+      "DELETE FROM public.\"Question\" WHERE id = $1 RETURNING id;");
     txn.commit();
   }
-  
+
   /*
    * Initialize the connection to the PostgreSQL database.
    */

@@ -1,41 +1,48 @@
 #include "server.hpp"
 
 namespace server {
-  std::vector<std::unique_ptr<RequestHandler>> load_handlers(const std::string& directory) {
-    std::vector<std::unique_ptr<RequestHandler>> handlers;
-
-    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-      if (entry.path().extension() == ".so") {
-        void* lib_handle = dlopen(entry.path().c_str(), RTLD_LAZY);
-        if (!lib_handle) {
-          std::cerr << "Failed to load library: " << entry.path().string() << " - " << dlerror() << std::endl;
-          throw std::runtime_error("Failed to load library: " + entry.path().string());
+    std::vector<std::unique_ptr<RequestHandler>> load_handlers(const std::string& directory) {
+      std::vector<std::unique_ptr<RequestHandler>> handlers;
+  
+      for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+        if (entry.path().extension() == ".so") {
+          void* lib_handle = dlopen(entry.path().c_str(), RTLD_LAZY);
+          if (!lib_handle) {
+            throw std::runtime_error("Failed to load library: " + entry.path().string());
+          }
+  
+          std::string filename = entry.path().stem().string();
+          if (filename.rfind("lib", 0) == 0)
+            filename = filename.substr(3);
+          std::string function_name = "create_" + filename + "_handler";
+          auto create_handler = reinterpret_cast<RequestHandler* (*)()>(dlsym(lib_handle, function_name.c_str()));
+          if (!create_handler) {
+            dlclose(lib_handle);
+            throw std::runtime_error("Failed to find " + function_name + " function in: " + entry.path().string());
+          }
+          handlers.emplace_back(create_handler());
         }
-
-        auto create_handler = reinterpret_cast<RequestHandler* (*)()>(dlsym(lib_handle, "create_handler"));
-        if (!create_handler) {
-          dlclose(lib_handle);
-          throw std::runtime_error("Failed to find create_handler function in: " + entry.path().string());
-        }
-        handlers.emplace_back(create_handler());
       }
+
+      for (const auto& handler : handlers) {
+        std::cout << handler->get_endpoint() << std::endl;
+      }
+  
+      return handlers;
     }
-    return handlers;
-  }
-
-  http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
-  static auto handlers = load_handlers("../api");
-
-  for (const auto& handler : handlers) {
-    std::cout << "Checking handler for endpoint: " << handler->get_endpoint() << std::endl;
-    if (req.target().starts_with(handler->get_endpoint())) {
-      return handler->handle_request(req);
+  
+    http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
+      static auto handlers = load_handlers("../api");
+  
+      for (const auto& handler : handlers) {
+        if (req.target().starts_with(handler->get_endpoint())) {
+          return handler->handle_request(req);
+        }
+      }
+  
+      std::cerr << "No handler found for endpoint: " << req.target() << std::endl;
+      return {http::status::not_found, req.version()};
     }
-  }
-
-  std::cerr << "No handler found for endpoint: " << req.target() << std::endl;
-  return {http::status::not_found, req.version()};
-}
 
   Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}
   void Session::run() {
