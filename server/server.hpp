@@ -7,6 +7,9 @@
 #include <boost/asio/strand.hpp>
 #include <boost/config.hpp>
 
+#include <filesystem>
+#include <dlfcn.h>
+#include <vector>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -15,8 +18,8 @@
 #include <map>
 
 #include "parser/parser.hpp"
-#include "server.hpp"
-#include "postgres.hpp"
+#include "request/request_handler.hpp"
+#include "request/postgres.hpp"
 
 namespace beast = boost::beast;
 namespace http = beast::http;
@@ -24,11 +27,7 @@ namespace net = boost::asio;
 using tcp = net::ip::tcp;
 
 namespace server {
-  std::map<std::string, std::string> parse_query_string(std::string_view query);
-  std::optional<std::string> parse_category_from_request(const http::request<http::string_body>& req);
-
-  http::response<http::string_body> make_bad_request_response(const std::string& message, const http::request<http::string_body>& req);
-  http::response<http::string_body> make_ok_request_response(const std::string& message, const http::request<http::string_body>& req);
+  std::vector<std::unique_ptr<RequestHandler>> load_handlers(const std::string& directory);
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req);
 
   class Session : public std::enable_shared_from_this<Session> {

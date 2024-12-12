@@ -63,5 +63,10 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBPQ REQUIRED libpq)
 include_directories(${LIBPQ_INCLUDE_DIRS})
 
-add_executable(TriviaBackend main.cpp server.cpp postgres.cpp parser/parser.cpp)
+file(GLOB API_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/api/*.cpp")
+add_library(APIHandler SHARED ${API_SOURCES} main.cpp server.cpp request/postgres.cpp request/request.cpp parser/parser.cpp)
+target_link_libraries(APIHandler ${Boost_LIBRARIES} ${LIBPQXX_LIB} ${LIBPQ_LIBRARIES})
+set_target_properties(APIHandler PROPERTIES OUTPUT_NAME "category_handler" LIBRARY_OUTPUT_DIRECTORY "../api")
+
+add_executable(TriviaBackend main.cpp server.cpp request/postgres.cpp)
 target_link_libraries(TriviaBackend ${Boost_LIBRARIES} ${LIBPQXX_LIB} ${LIBPQ_LIBRARIES})
