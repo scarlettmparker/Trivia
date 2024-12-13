@@ -1,6 +1,7 @@
 import { render } from "solid-js/web";
 import { Router, Route } from "@solidjs/router";
 import { MetaProvider } from "@solidjs/meta";
+import "./index.css";
 
 import Index from './routes/index';
 import Login from './routes/login';
