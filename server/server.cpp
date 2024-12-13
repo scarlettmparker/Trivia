@@ -1,63 +1,84 @@
 #include "server.hpp"
 
 namespace server {
-    std::vector<std::unique_ptr<RequestHandler>> load_handlers(const std::string& directory) {
-      std::vector<std::unique_ptr<RequestHandler>> handlers;
-  
-      for (const auto& entry : std::filesystem::directory_iterator(directory)) {
-        if (entry.path().extension() == ".so") {
-          void* lib_handle = dlopen(entry.path().c_str(), RTLD_LAZY);
-          if (!lib_handle) {
-            throw std::runtime_error("Failed to load library: " + entry.path().string());
-          }
-  
-          std::string filename = entry.path().stem().string();
-          if (filename.rfind("lib", 0) == 0)
-            filename = filename.substr(3);
-          std::string function_name = "create_" + filename + "_handler";
-          auto create_handler = reinterpret_cast<RequestHandler* (*)()>(dlsym(lib_handle, function_name.c_str()));
-          if (!create_handler) {
-            dlclose(lib_handle);
-            throw std::runtime_error("Failed to find " + function_name + " function in: " + entry.path().string());
-          }
-          handlers.emplace_back(create_handler());
-        }
-      }
+  /**
+    * Load all request handlers from the specified directory.
+    * This function loads all shared objects (.so files) from the specified directory and
+    * looks for a function named create_<handler_name>_handler in each of them.
+    *
+    * @param directory Directory to load handlers from.
+    * @return Vector of unique pointers to the loaded request handlers.
+    */
+  std::vector<std::unique_ptr<RequestHandler>> load_handlers(const std::string& directory) {
+    std::vector<std::unique_ptr<RequestHandler>> handlers;
 
-      for (const auto& handler : handlers) {
-        std::cout << handler->get_endpoint() << std::endl;
-      }
-  
-      return handlers;
-    }
-  
-    http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
-      static auto handlers = load_handlers("../api");
-  
-      for (const auto& handler : handlers) {
-        if (req.target().starts_with(handler->get_endpoint())) {
-          return handler->handle_request(req);
+    for (const auto& entry : std::filesystem::directory_iterator(directory)) {
+      if (entry.path().extension() == ".so") {
+        void* lib_handle = dlopen(entry.path().c_str(), RTLD_LAZY);
+        if (!lib_handle) {
+          throw std::runtime_error("Failed to load library: " + entry.path().string());
         }
+
+        std::string filename = entry.path().stem().string();
+        if (filename.rfind("lib", 0) == 0)
+          filename = filename.substr(3);
+        std::string function_name = "create_" + filename + "_handler";
+        auto create_handler = reinterpret_cast<RequestHandler* (*)()>(dlsym(lib_handle, function_name.c_str()));
+        if (!create_handler) {
+          dlclose(lib_handle);
+          throw std::runtime_error("Failed to find " + function_name + " function in: " + entry.path().string());
+        }
+        handlers.emplace_back(create_handler());
       }
-  
-      std::cerr << "No handler found for endpoint: " << req.target() << std::endl;
-      return {http::status::not_found, req.version()};
     }
+
+    return handlers;
+  }
+
+  /**
+    * Handle an HTTP request. This function iterates over all loaded request handlers and
+    * calls their handle_request method if the request target starts with the handler's endpoint.
+    *
+    * @param req HTTP request to handle.
+    * @return HTTP response.
+    */
+  http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
+    static auto handlers = load_handlers(".");
+
+    for (const auto& handler : handlers) {
+      if (req.target().starts_with(handler->get_endpoint())) {
+        return handler->handle_request(req, ip_address);
+      }
+    }
+
+    std::cerr << "No handler found for endpoint: " << req.target() << std::endl;
+    return {http::status::not_found, req.version()};
+  }
 
   Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}
   void Session::run() {
     do_read();
   }
 
+  /**
+   * Read a request from the client.
+   */
   void Session::do_read() {
     auto self(shared_from_this());
     http::async_read(socket_, buffer_, req_, [this, self](beast::error_code ec, std::size_t) {
       if (!ec) {
-        do_write(handle_request(req_));
+        boost::asio::ip::address ip_address = socket_.remote_endpoint().address();
+        std::string ip_str = ip_address.to_string();
+        auto res = handle_request(req_, ip_str);
+        do_write(std::move(res));
       }
     });
   }
 
+  /**
+   * Write a response to the client.
+   * @param res Response to write.
+   */
   void Session::do_write(http::response<http::string_body> res) {
     auto self(shared_from_this());
     auto sp = std::make_shared<http::response<http::string_body>>(std::move(res));
@@ -97,6 +118,9 @@ namespace server {
     do_accept();
   }
 
+  /**
+   * Start accepting incoming connections.
+   */
   void Listener::do_accept() {
     acceptor_.async_accept(net::make_strand(ioc_), [this](beast::error_code ec, tcp::socket socket) {
       if (!ec) {

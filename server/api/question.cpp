@@ -7,6 +7,12 @@ class QuestionHandler : public RequestHandler {
     return "/api/question";
   }
 
+  /**
+   * Select a question by ID from the database.
+   * @param question_id ID of the question to select.
+   * @param verbose Whether to print messages to stdout.
+   * @return ID of the question if found, 0 otherwise.
+   */
   int select_question(int question_id, int verbose=0) {
     try{
       pqxx::work txn(*c);
@@ -18,12 +24,22 @@ class QuestionHandler : public RequestHandler {
       verbose && std::cout << "Question with ID " << question_id << " found" << std::endl;
       return r[0][0].as<int>();
     } catch (const std::exception &e) {
-      std::cerr << "Error executing query: " << e.what() << std::endl;
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      std::cerr << "Unknown error while executing query" << std::endl;
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
+    return 0;
   }
 
+  /**
+   * Create a question in the database.
+   * @param question Question to create.
+   * @param answers Answers to the question.
+   * @param correct_answer Index of the correct answer.
+   * @param category_id ID of the category to associate the question with.
+   * @param verbose Whether to print messages to stdout.
+   * @return 1 if the question was created, 0 otherwise.
+   */
   int create_question(const char * question, std::vector<std::string> answers,
     int correct_answer, int category_id, int verbose=0) {
     try {
@@ -34,13 +50,19 @@ class QuestionHandler : public RequestHandler {
       verbose && std::cout << "Successfully created question " << question << std::endl;
       return 1;
     } catch (const std::exception &e) {
-      std::cerr << "Error executing query: " << e.what() << std::endl;
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      std::cerr << "Unknown error while executing query" << std::endl;
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
     return 0;
   }
 
+  /**
+   * Delete a question from the database.
+   * @param question_id ID of the question to delete.
+   * @param verbose Whether to print messages to stdout.
+   * @return 1 if the question was deleted, 0 otherwise.
+   */
   int delete_question(int question_id, int verbose=0) {
     try {
       pqxx::work txn(*c);
@@ -55,14 +77,14 @@ class QuestionHandler : public RequestHandler {
         return 0;
       }
     } catch (const std::exception &e) {
-      std::cerr << "Error executing query: " << e.what() << std::endl;
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      std::cerr << "Unknown error while executing query" << std::endl;
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
     return 0;
   }
 
-  http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
+  http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
     if (req.method() == http::verb::get) {
       /**
         * -------------- GET QUESTION --------------

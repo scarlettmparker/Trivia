@@ -15,8 +15,6 @@ namespace postgres {
   void prepare_statements();
   void init_connection();
   void close_connection();
-
-  int select_category(int category_id, int verbose=0);
 }
 
 #endif

@@ -13,7 +13,7 @@ class CategoryHandler : public RequestHandler {
     * @param verbose Whether to print messages to stdout.
     * @return ID of the category if found, 0 otherwise.
     */
-    int select_category(const std::string& category_name, bool verbose) {
+    int select_category(const std::string& category_name, int verbose=0) {
       try {
         pqxx::work txn(*c);
         pqxx::result r = txn.exec_prepared("select_category", category_name);
@@ -35,7 +35,7 @@ class CategoryHandler : public RequestHandler {
     * @param verbose Whether to print messages to stdout.
     * @return 1 if the category was created, 0 otherwise.
     */
-    int create_category(const char * category_name, int verbose) {
+    int create_category(const char * category_name, int verbose=0) {
       try {
         pqxx::work txn(*c);
         pqxx::result r = txn.exec_prepared("create_category", category_name);
@@ -62,7 +62,7 @@ class CategoryHandler : public RequestHandler {
     * @param verbose Whether to print messages to stdout.
     * @return 1 if the category was deleted, 0 otherwise.
     */
-    int delete_category(const char * category_name, int verbose) {
+    int delete_category(const char * category_name, int verbose=0) {
       if (c == nullptr) {
         verbose && std::cerr << "Database connection is not initialized" << std::endl;
         return 0;
@@ -88,7 +88,7 @@ class CategoryHandler : public RequestHandler {
       return 0;
     }
 
-    http::response<http::string_body> handle_request(http::request<http::string_body> const& req) {
+    http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
       /**
        * -------------- GET CATEGORY --------------
        */

@@ -64,20 +64,30 @@ add_library(pch STATIC ${PCH_SOURCE})
 target_precompile_headers(pch PRIVATE ${PCH_HEADER})
 
 #boost
+
 find_package(Boost REQUIRED COMPONENTS system filesystem)
 include_directories(${Boost_INCLUDE_DIRS})
 
 #libpqxx
+
 find_library(LIBPQXX_LIB NAMES pqxx PATHS /usr/local/lib)
 if (NOT LIBPQXX_LIB)
     message(FATAL_ERROR "libpqxx not found")
 endif()
 
 #libpq
+
 include_directories(/usr/local/include)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBPQ REQUIRED libpq)
 include_directories(${LIBPQ_INCLUDE_DIRS})
+
+#bcrypt
+
+find_library(BCRYPT_LIB NAMES bcrypt PATHS /usr/local/lib)
+if (NOT BCRYPT_LIB)
+    message(FATAL_ERROR "bcrypt not found")
+endif()
 
 file(GLOB API_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/api/*.cpp")
 
@@ -86,8 +96,10 @@ foreach(SOURCE_FILE ${API_SOURCES})
   add_library(${LIB_NAME} SHARED ${SOURCE_FILE}
     server.cpp request/postgres.cpp request/request.cpp parser/parser.cpp
   )
-  set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${LIB_NAME} LIBRARY_OUTPUT_DIRECTORY "../api")
-  target_link_libraries(${LIB_NAME} ${Boost_LIBRARIES} ${LIBPQXX_LIB} ${LIBPQ_LIBRARIES} pch)
+  set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${LIB_NAME} LIBRARY_OUTPUT_DIRECTORY ".")
+  target_link_libraries(
+    ${LIB_NAME} ${Boost_LIBRARIES} ${LIBPQXX_LIB} ${LIBPQ_LIBRARIES} ${BCRYPT_LIB} pch
+  )
 endforeach()
 
 add_executable(TriviaBackend main.cpp server.cpp request/postgres.cpp)
