@@ -23,8 +23,22 @@ const Login = () => {
           <input class={`${styles.input_text} ${styles.input_form}`} placeholder="Username" 
             value={username()} oninput={(e) => setUsername(e.target.value)}/>
           <div class={styles.password_form}>
-            { password() && <img class={styles.show_password} src="./eye.png" width={EYE_WIDTH} height={EYE_WIDTH} draggable={false}
-              onclick={() => setShowpassword(!showpassword())} /> }
+            { password() && 
+              <button
+              class={styles.show_password}
+              onClick={() => setShowpassword(!showpassword())}
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+              aria-label={showpassword() ? 'Hide password' : 'Show password'}
+              >
+              <img
+                src="./eye.png"
+                width={EYE_WIDTH}
+                height={EYE_WIDTH}
+                draggable={false}
+                alt={showpassword() ? 'Hide password' : 'Show password'}
+              />
+            </button>
+            }
             <input class={`${styles.input_text} ${styles.input_form}`} placeholder="Password" type={showpassword() ? "password" : "text"}
               value={password()} oninput={(e) => setPassword(e.target.value)}/>
           </div>
