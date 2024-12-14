@@ -17,10 +17,10 @@ body {
   z-index: 1;
   width: 640px;
   height: 420px;
-  padding: 70px 90px 80px 80px;
+  padding: 70px 90px 70px 80px;
 
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.45);
   font-family: "Inter";
   font-weight: 300;
 
@@ -84,6 +84,8 @@ body {
 .form_button {
   position: relative;
   margin: auto;
+
+  margin-bottom: 0.75em;
   margin-top: 0.75em;
 
   width: 90%;
@@ -156,7 +158,6 @@ body {
 }
 
 .no_account_text {
-  margin-top: 1em;
   position: relative;
   align-self: center;
 }

@@ -2,6 +2,47 @@
 
 using namespace postgres;
 namespace request {
+  /* caching for session data */
+  size_t MAX_CACHE_SIZE = 1000;
+  int CACHE_TTL_SECONDS = 60;
+  std::mutex cache_mutex;
+  std::unordered_map<std::string, CachedUserData> session_cache;
+
+  /**
+   * Invalidate a session by setting it to inactive.
+   * @param session_id Session ID to invalidate.
+   * @param verbose Whether to print messages to stdout.
+   */
+  void invalidate_session(const std::string& session_id, int verbose) {
+    std::lock_guard<std::mutex> lock(cache_mutex);
+    session_cache.erase(session_id);
+    try {
+      pqxx::work txn(*postgres::c);
+      txn.exec_prepared("invalidate_session", session_id);
+      txn.commit();
+    } catch (const std::exception &e) {
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+    } catch (...) {
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+    }
+  }
+
+  /**
+   * Get the session ID from a cookie in a request.
+   * @param req Request to get the session ID from.
+   * @return Session ID from the cookie.
+   */
+  std::string get_session_id_from_cookie(const http::request<http::string_body>& req) {
+    auto cookie_header = req[http::field::cookie];
+    std::string session_id;
+
+    size_t pos = cookie_header.find("sessionId=");
+    if (pos != std::string::npos) {
+      session_id = std::string(cookie_header.substr(pos + 10));
+    }
+    return session_id;
+  }
+
    /**
    * Parse a query string into a map of key-value pairs
    * This allows query strings to be extracted from URLS, to be used as parameters.
@@ -132,28 +173,5 @@ namespace request {
     res.prepare_payload();
 
     return res;
-  }
-
-  /**
-   * Example function demonstrating session validation (logic will be used elsewhere later).
-   * @param req Request to validate the session for.
-   * @return Response indicating whether the session is valid.
-   */
-   http::response<http::string_body> validate_session(const http::request<http::string_body>& req)
-   {
-    std::string session_id = get_session_id_from_cookie(req);
-    if (session_id.empty()) {
-      return make_unauthorized_response("Invalid or expired session", req);
-    }
-
-    int user_id = select_user_id_from_session(session_id, 0);
-    if (user_id == -1) {
-      return make_unauthorized_response("Invalid or expired session", req);
-    }
-
-    nlohmann::json response_json;
-    response_json["message"] = "Session validated";
-    response_json["user_id"] = user_id;
-    return make_ok_request_response(response_json.dump(4), req);
   }
 }

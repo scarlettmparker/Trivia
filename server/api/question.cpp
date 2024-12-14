@@ -2,11 +2,8 @@
 
 using namespace postgres;
 class QuestionHandler : public RequestHandler {
-  public:
-  std::string get_endpoint() const override{
-    return "/api/question";
-  }
-
+  private:
+  
   /**
    * Select a question by ID from the database.
    * @param question_id ID of the question to select.
@@ -82,6 +79,11 @@ class QuestionHandler : public RequestHandler {
       verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
     return 0;
+  }
+  
+  public:
+  std::string get_endpoint() const override{
+    return "/api/question";
   }
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {

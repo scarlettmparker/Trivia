@@ -7,48 +7,29 @@ class SessionHandler : public RequestHandler {
     int user_id;
     std::string username;
   };
-
-  std::mutex cache_mutex;
-  std::unordered_map<std::string, UserData> session_cache;
-
-  public:
-  std::string get_endpoint() const override{
-    return "/api/session";
-  }
-
-  /**
-   * Invalidate a session by setting it to inactive.
-   * @param session_id Session ID to invalidate.
-   * @param verbose Whether to print messages to stdout.
-   */
-  void invalidate_session(const std::string& session_id, int verbose) {
-    std::lock_guard<std::mutex> lock(cache_mutex);
-    session_cache.erase(session_id);
-    try {
-      pqxx::work txn(*postgres::c);
-      txn.exec_prepared("invalidate_session", session_id);
-      txn.commit();
-    } catch (const std::exception &e) {
-      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
-    } catch (...) {
-      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+  
+  void cleanup_cache() {
+    std::lock_guard<std::mutex> lock(request::cache_mutex);
+    auto now = std::chrono::system_clock::now();
+    
+    for (auto it = request::session_cache.begin(); it != request::session_cache.end();) {
+      if (it->second.expiry < now) {
+        it = request::session_cache.erase(it);
+      } else {
+        ++it;
+      }
     }
-  }
 
-  /**
-   * Get the session ID from a cookie in a request.
-   * @param req Request to get the session ID from.
-   * @return Session ID from the cookie.
-   */
-  std::string get_session_id_from_cookie(const http::request<http::string_body>& req) {
-    auto cookie_header = req[http::field::cookie];
-    std::string session_id;
-
-    size_t pos = cookie_header.find("sessionId=");
-    if (pos != std::string::npos) {
-      session_id = std::string(cookie_header.substr(pos + 10));
+    // if cache is too large, remove the oldest entries
+    if (request::session_cache.size() > request::MAX_CACHE_SIZE) {
+      auto oldest = request::session_cache.begin();
+      for (auto it = request::session_cache.begin(); it != request::session_cache.end(); ++it) {
+        if (it->second.expiry < oldest->second.expiry) {
+          oldest = it;
+        }
+      }
+      request::session_cache.erase(oldest);
     }
-    return session_id;
   }
 
   /**
@@ -59,10 +40,14 @@ class SessionHandler : public RequestHandler {
    */
   UserData select_user_data_from_session(const std::string& session_id, int verbose) {
     {
-      std::lock_guard<std::mutex> lock(cache_mutex);
-      auto it = session_cache.find(session_id);
-      if (it != session_cache.end()) {
-        return it->second;
+      std::lock_guard<std::mutex> lock(request::cache_mutex);
+      auto it = request::session_cache.find(session_id);
+      if (it != request::session_cache.end()) {
+        auto now = std::chrono::system_clock::now();
+        if (it->second.expiry > now) {
+          return {it->second.user_id, it->second.username};
+        }
+        request::session_cache.erase(it);
       }
     }
 
@@ -73,18 +58,24 @@ class SessionHandler : public RequestHandler {
 
       if (r.empty()) {
         verbose && std::cerr << "Session ID " << session_id << " not found" << std::endl;
-        invalidate_session(session_id, 0);
+        request::invalidate_session(session_id, 0);
         return {-1, ""};
       }
 
       int user_id = std::stoi(r[0][0].c_str());
       std::string username = r[0][1].c_str();
-      UserData user_data = {user_id, username};
+      
       {
-        std::lock_guard<std::mutex> lock(cache_mutex);
-        session_cache[session_id] = user_data;
+        std::lock_guard<std::mutex> lock(request::cache_mutex);
+        auto expiry = std::chrono::system_clock::now() + std::chrono::seconds(request::CACHE_TTL_SECONDS);
+        request::session_cache[session_id] = {user_id, username, expiry};
+        
+        if (request::session_cache.size() > request::MAX_CACHE_SIZE) {
+          cleanup_cache();
+        }
       }
-      return user_data;
+      
+      return {user_id, username};
     } catch (const std::exception &e) {
       verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
@@ -93,18 +84,23 @@ class SessionHandler : public RequestHandler {
     return {-1, ""};
   }
 
+  public:
+  std::string get_endpoint() const override{
+    return "/api/session";
+  }
+
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
     if (req.method() == http::verb::get) {
       /**
        * -------------- VALIDATE SESSION --------------
        */
-      
-      std::string session_id = get_session_id_from_cookie(req);
+      std::string session_id = request::get_session_id_from_cookie(req);
       if (session_id.empty()) {
         return request::make_unauthorized_response("Invalid or expired session", req);
       }
 
       UserData user_data = select_user_data_from_session(session_id, 0);
+      
       if (user_data.user_id == -1) {
         return request::make_unauthorized_response("Invalid or expired session", req);
       }

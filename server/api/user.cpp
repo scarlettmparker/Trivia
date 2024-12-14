@@ -2,11 +2,8 @@
 
 using namespace postgres;
 class UserHandler : public RequestHandler {
-  public:
-  std::string get_endpoint() const override{
-    return "/api/user";
-  }
-
+  private:
+  
   /**
    * Generate a session ID for a user. This function uses OpenSSL to generate a random 128-bit session ID.
    * @param verbose Whether to print messages to stdout.
@@ -155,6 +152,11 @@ class UserHandler : public RequestHandler {
     } else {
       return 0;
     }
+  }
+
+  public:
+  std::string get_endpoint() const override{
+    return "/api/user";
   }
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address){

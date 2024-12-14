@@ -1,13 +1,17 @@
 import { Title } from "@solidjs/meta";
 import { createSignal, onMount } from "solid-js";
+import { ENV } from "~/const";
 import styles from "./login.module.css";
 import ButtonWithAlt from '~/components/ButtonWithAlt';
 
-const ENV = {
-  VITE_SERVER_HOST: import.meta.env.VITE_SERVER_HOST,
-  VITE_SERVER_PORT: import.meta.env.VITE_SERVER_PORT
-};
-
+/**
+ * Login to the account using the username and password.
+ * This function sends a POST request to the server to login the user, and redirects to the home page if successful.
+ * @param username Username of the user.
+ * @param password Password of the user.
+ * @param setError Function to set the error message.
+ * @returns void
+ */
 async function login(username: string, password: string, setError: (error: string) => void) {
   const response = await fetch(`http://${ENV.VITE_SERVER_HOST}:${ENV.VITE_SERVER_PORT}/api/user`, {
     method: 'POST',
