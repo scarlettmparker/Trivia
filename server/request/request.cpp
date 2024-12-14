@@ -135,68 +135,6 @@ namespace request {
   }
 
   /**
-   * Get the session ID from a cookie in a request.
-   * @param req Request to get the session ID from.
-   * @return Session ID from the cookie.
-   */
-  std::string get_session_id_from_cookie(const http::request<http::string_body>& req) {
-    auto cookie_header = req[http::field::cookie];
-    std::string session_id;
-
-    size_t pos = cookie_header.find("sessionId=");
-    if (pos != std::string::npos) {
-      session_id = std::string(cookie_header.substr(pos + 10));
-    }
-    return session_id;
-  }
-
-  /**
-   * Invalidate a session by setting it to inactive.
-   * @param session_id Session ID to invalidate.
-   * @param verbose Whether to print messages to stdout.
-   * @return 1 if the session was invalidated, 0 otherwise.
-   */
-  int invalidate_session(const std::string& session_id, int verbose) {
-    try{
-      pqxx::work txn(*postgres::c);
-      txn.exec_prepared("invalidate_session", session_id);
-      txn.commit();
-      return 1;
-    } catch (const std::exception &e) {
-      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
-    } catch (...) {
-      verbose && std::cerr << "Unknown error while executing query" << std::endl;
-    }
-    return 0;
-  }
-
-  /**
-   * Select the user ID from the session ID.
-   * @param session_id Session ID to select the user ID from.
-   * @param verbose Whether to print messages to stdout.
-   * @return User ID if the session is valid, -1 otherwise.
-   */
-  int select_user_id_from_session(const std::string& session_id, int verbose) {
-    try{
-      pqxx::work txn(*postgres::c);
-      pqxx::result r = txn.exec_prepared("select_user_id_from_session", session_id);
-      txn.commit();
-
-      if (r.empty()) {
-        verbose && std::cerr << "Session ID " << session_id << " not found" << std::endl;
-        invalidate_session(session_id, 0);
-        return -1;
-      }
-      return std::stoi(r[0][0].c_str());
-    } catch (const std::exception &e) {
-      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
-    } catch (...) {
-      verbose && std::cerr << "Unknown error while executing query" << std::endl;
-    }
-    return -1;
-  }
-
-  /**
    * Example function demonstrating session validation (logic will be used elsewhere later).
    * @param req Request to validate the session for.
    * @return Response indicating whether the session is valid.

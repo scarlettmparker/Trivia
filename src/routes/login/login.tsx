@@ -15,6 +15,7 @@ async function login(username: string, password: string, setError: (error: strin
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*'
     },
+    credentials: 'include',
     body: JSON.stringify({
       username: username, password: password
     })

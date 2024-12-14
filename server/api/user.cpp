@@ -15,7 +15,7 @@ class UserHandler : public RequestHandler {
   std::string generate_session_id(int verbose) {
     unsigned char buffer[16];
     if (RAND_bytes(buffer, sizeof(buffer)) != 1) {
-      if (verbose) std::cerr << "Failed to generate session ID" << std::endl;
+      verbose && std::cerr << "Failed to generate session ID" << std::endl;
     }
     std::stringstream session_id;
     for (int i = 0; i < 16; ++i) {
@@ -28,7 +28,7 @@ class UserHandler : public RequestHandler {
    * Set a session cookie for a user. This ets the session ID in a cookie with the following attributes:
    * - HttpOnly: The cookie is not accessible via JavaScript.
    * - Secure: The cookie is only sent over HTTPS.
-   * - SameSite=Strict: The cookie is not sent on cross-site requests.
+   * - SameSite=None: The cookie is sent with cross-site requests.
    * - Max-Age=86400: The cookie expires after 24 hours.
    *
    * @param session_id Session ID to set in the cookie.
@@ -37,7 +37,7 @@ class UserHandler : public RequestHandler {
   http::response<http::string_body> set_session_cookie(const std::string& session_id) {
     http::response<http::string_body> res{http::status::ok, 11};
     res.set(http::field::content_type, "application/json");
-    res.set(http::field::set_cookie, "sessionId=" + session_id + "; HttpOnly; Secure; SameSite=Strict Max-Age=86400");
+    res.set(http::field::set_cookie, "sessionId=" + session_id + "; HttpOnly; Secure; SameSite=None; Max-Age=86400");
     res.body() = R"({"message": "Login successful", "status": "ok"})";
     res.prepare_payload();
     return res;
@@ -47,21 +47,22 @@ class UserHandler : public RequestHandler {
    * Set a session ID for a user.
    * @param session_id Session ID to set.
    * @param user_id ID of the user to set the session ID for.
+   * @param username Username of the user to set the session ID for.
    * @param duration Duration of the session in seconds.
    * @param ip_address IP address of the user.
    * @param verbose Whether to print messages to stdout.
    * @return 1 if the session ID was set, 0 otherwise.
    */
-  int set_session_id(std::string session_id, int user_id, int duration, std::string ip_address, int verbose) {
+  int set_session_id(std::string session_id, int user_id, std::string username, int duration, std::string ip_address, int verbose) {
     try{
       pqxx::work txn(*c);
-      txn.exec_prepared("set_session_id", session_id, user_id, duration, ip_address);
+      txn.exec_prepared("set_session_id", session_id, user_id, username, duration, ip_address);
       txn.commit();
       return 1;
     } catch (const std:: exception &e) {
-      if (verbose) std::cerr << "Error executing query: " << e.what() << std::endl;
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      if (verbose) std::cerr << "Unknown error while executing query" << std::endl;
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
     return 0;
   }
@@ -77,16 +78,40 @@ class UserHandler : public RequestHandler {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_user_id", username);
       if (r.empty()) {
-        if (verbose) std::cout << "User with username " << username << " not found" << std::endl;
+        verbose && std::cout << "User with username " << username << " not found" << std::endl;
         return -1;
       }
       return r[0][0].as<int>();
     } catch (const std:: exception &e) {
-      if (verbose) std::cerr << "Error executing query: " << e.what() << std::endl;
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      if (verbose) std::cerr << "Unknown error while executing query" << std::endl;
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
     return -1;
+  }
+
+
+  /**
+   * Select a user by ID.
+   * @param id ID of the user to select.
+   * @param verbose Whether to print messages to stdout.
+   * @return Username of the user if found, NULL otherwise.
+   */
+  std::string select_username_from_id(int id, int verbose) {
+    try{
+      pqxx::work txn(*c);
+      pqxx::result r = txn.exec_prepared("select_username_from_id", id);
+      if (r.empty()) {
+        verbose && std::cout << "User with ID " << id << " not found" << std::endl;
+        return NULL; 
+      }
+      return r[0][0].c_str();
+    } catch (const std:: exception &e) {
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+    } catch (...) {
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+    }
+    return NULL;
   }
 
   /**
@@ -100,14 +125,14 @@ class UserHandler : public RequestHandler {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_password", username);
       if (r.empty()) {
-        if (verbose) std::cout << "User with username " << username << " not found" << std::endl;
+        verbose && std::cout << "User with username " << username << " not found" << std::endl;
         return NULL;
       }
       return r[0][0].c_str();
     } catch (const std:: exception &e) {
-      if (verbose) std::cerr << "Error executing query: " << e.what() << std::endl;
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      if (verbose) std::cerr << "Unknown error while executing query" << std::endl;
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
     }
     return NULL;
   }
@@ -125,7 +150,6 @@ class UserHandler : public RequestHandler {
     if (select_password(username, 0) == NULL) {
       return 0;
     }
-
     if (BCrypt::validatePassword(password, select_password(username, 0))) {
       return 1;
     } else {
@@ -134,7 +158,35 @@ class UserHandler : public RequestHandler {
   }
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address){
-    if (req.method() == http::verb::post) {
+    if (req.method() == http::verb::get) {
+      /**
+       * -------------- GET USER --------------
+       */
+      auto user_id_request = request::parse_from_request(req, "user_id");
+      if (!user_id_request) {
+        return request::make_bad_request_response("Invalid user id parameters", req);
+      }
+
+      std::string user = *user_id_request;
+      int user_id;
+      try {
+        user_id = std::stoi(user);
+      } catch (const std::invalid_argument& e) {
+        return request::make_bad_request_response("Invalid user id format", req);
+      } catch (const std::out_of_range& e) {
+        return request::make_bad_request_response("User id out of range", req);
+      }
+
+      nlohmann::json response_json;
+      std::string username = select_username_from_id(user_id, 0);
+      if (username.empty())
+        return request::make_bad_request_response("User not found", req);
+      
+      response_json["message"] = "User found successfully";
+      response_json["user_id"] = user_id;
+      response_json["username"] = username;
+      return request::make_ok_request_response(response_json.dump(4), req);
+    } else if (req.method() == http::verb::post) {
       /**
       * -------------- LOGIN USER --------------
       */
@@ -163,7 +215,7 @@ class UserHandler : public RequestHandler {
       int user_id = select_user_id(username, 0);
       int expires_at = 86400; // in seconds
 
-      if (!set_session_id(session_id, user_id, expires_at, ip_address, 0))
+      if (!set_session_id(session_id, user_id, username, expires_at, ip_address, 0))
         return request::make_bad_request_response("An unexpected error has occured.", req);
 
       return set_session_cookie(session_id);
@@ -177,18 +229,16 @@ extern "C" RequestHandler* create_user_handler() {
   pqxx::work txn(*c);
   
   /* Session Queries */
-  txn.conn().prepare("select_user_id_from_session",
-    "SELECT user_id FROM public.\"Sessions\" WHERE id = $1 AND expires_at > NOW() AND active = TRUE LIMIT 1;");
-  txn.conn().prepare("invalidate_session",
-    "UPDATE public.\"Sessions\" SET active = FALSE WHERE id = $1;");
   txn.conn().prepare("set_session_id",
-    "INSERT INTO public.\"Sessions\" (id, user_id, created_at, last_accessed, expires_at, ip_address, active) "
-    "VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + ($3 || ' seconds')::interval, $4, TRUE) "
+    "INSERT INTO public.\"Sessions\" (id, user_id, username, created_at, last_accessed, expires_at, ip_address, active) "
+    "VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + ($4 || ' seconds')::interval, $5, TRUE) "
     "RETURNING id;");
 
   /* User Queries */
   txn.conn().prepare("select_user_id",
     "SELECT id from public.\"Users\" WHERE username = $1 LIMIT 1;");
+  txn.conn().prepare("select_username_from_id",
+    "SELECT username from public.\"Users\" WHERE id = $1 LIMIT 1;");
   txn.conn().prepare("select_password", 
     "SELECT password FROM public.\"Users\" WHERE username = $1 LIMIT 1;");
     

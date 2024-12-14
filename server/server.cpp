@@ -49,9 +49,10 @@ namespace server {
     // handle CORS preflight request
     if (req.method() == http::verb::options) {
         res = {http::status::no_content, req.version()};
-        res.set(http::field::access_control_allow_origin, "*");
+        res.set(http::field::access_control_allow_origin, req["Origin"].to_string());
         res.set(http::field::access_control_allow_methods, "GET, POST, PUT, DELETE, OPTIONS");
         res.set(http::field::access_control_allow_headers, "Content-Type, Authorization, Access-Control-Allow-Origin");
+        res.set(http::field::access_control_allow_credentials, "true");
         return res;
     }
 
@@ -68,9 +69,10 @@ namespace server {
     }
 
     // set CORS headers
-    res.set(http::field::access_control_allow_origin, "*");
+    res.set(http::field::access_control_allow_origin, req["Origin"].to_string());
     res.set(http::field::access_control_allow_methods, "GET, POST, PUT, DELETE, OPTIONS");
     res.set(http::field::access_control_allow_headers, "Content-Type, Authorization");
+    res.set(http::field::access_control_allow_credentials, "true");
     
     return res;
   }
