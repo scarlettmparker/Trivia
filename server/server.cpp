@@ -44,15 +44,35 @@ namespace server {
     */
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
     static auto handlers = load_handlers(".");
+    http::response<http::string_body> res;
 
-    for (const auto& handler : handlers) {
-      if (req.target().starts_with(handler->get_endpoint())) {
-        return handler->handle_request(req, ip_address);
-      }
+    // handle CORS preflight request
+    if (req.method() == http::verb::options) {
+        res = {http::status::no_content, req.version()};
+        res.set(http::field::access_control_allow_origin, "*");
+        res.set(http::field::access_control_allow_methods, "GET, POST, PUT, DELETE, OPTIONS");
+        res.set(http::field::access_control_allow_headers, "Content-Type, Authorization, Access-Control-Allow-Origin");
+        return res;
     }
 
-    std::cerr << "No handler found for endpoint: " << req.target() << std::endl;
-    return {http::status::not_found, req.version()};
+    for (const auto& handler : handlers) {
+        if (req.target().starts_with(handler->get_endpoint())) {
+            res = handler->handle_request(req, ip_address);
+            break;
+        }
+    }
+
+    if (res.result() == http::status::unknown) {
+        std::cerr << "No handler found for endpoint: " << req.target() << std::endl;
+        res = {http::status::not_found, req.version()};
+    }
+
+    // set CORS headers
+    res.set(http::field::access_control_allow_origin, "*");
+    res.set(http::field::access_control_allow_methods, "GET, POST, PUT, DELETE, OPTIONS");
+    res.set(http::field::access_control_allow_headers, "Content-Type, Authorization");
+    
+    return res;
   }
 
   Session::Session(tcp::socket socket) : socket_(std::move(socket)) {}

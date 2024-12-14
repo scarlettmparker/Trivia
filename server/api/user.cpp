@@ -15,7 +15,7 @@ class UserHandler : public RequestHandler {
   std::string generate_session_id(int verbose) {
     unsigned char buffer[16];
     if (RAND_bytes(buffer, sizeof(buffer)) != 1) {
-      verbose && std::cerr << "Failed to generate session ID" << std::endl;
+      if (verbose) std::cerr << "Failed to generate session ID" << std::endl;
     }
     std::stringstream session_id;
     for (int i = 0; i < 16; ++i) {
@@ -38,7 +38,7 @@ class UserHandler : public RequestHandler {
     http::response<http::string_body> res{http::status::ok, 11};
     res.set(http::field::content_type, "application/json");
     res.set(http::field::set_cookie, "sessionId=" + session_id + "; HttpOnly; Secure; SameSite=Strict Max-Age=86400");
-    res.body() = R"({"message": "Login successful"})";
+    res.body() = R"({"message": "Login successful", "status": "ok"})";
     res.prepare_payload();
     return res;
   }
@@ -59,9 +59,9 @@ class UserHandler : public RequestHandler {
       txn.commit();
       return 1;
     } catch (const std:: exception &e) {
-      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+      if (verbose) std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+      if (verbose) std::cerr << "Unknown error while executing query" << std::endl;
     }
     return 0;
   }
@@ -77,14 +77,14 @@ class UserHandler : public RequestHandler {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_user_id", username);
       if (r.empty()) {
-        verbose && std::cout << "User with username " << username << " not found" << std::endl;
+        if (verbose) std::cout << "User with username " << username << " not found" << std::endl;
         return -1;
       }
       return r[0][0].as<int>();
     } catch (const std:: exception &e) {
-      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+      if (verbose) std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+      if (verbose) std::cerr << "Unknown error while executing query" << std::endl;
     }
     return -1;
   }
@@ -100,14 +100,14 @@ class UserHandler : public RequestHandler {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_password", username);
       if (r.empty()) {
-        verbose && std::cout << "User with username " << username << " not found" << std::endl;
+        if (verbose) std::cout << "User with username " << username << " not found" << std::endl;
         return NULL;
       }
       return r[0][0].c_str();
     } catch (const std:: exception &e) {
-      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+      if (verbose) std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
-      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+      if (verbose) std::cerr << "Unknown error while executing query" << std::endl;
     }
     return NULL;
   }
@@ -121,16 +121,14 @@ class UserHandler : public RequestHandler {
    * @param verbose Whether to print messages to stdout.
    * @return 1 if the user is authenticated, 0 otherwise.
    */
-  int login(const char * username, const char * password, int verbose) {
+  int login(const char * username, const char * password) {
     if (select_password(username, 0) == NULL) {
-      std::cout << "User with username " << username << " not found" << std::endl;
       return 0;
     }
 
     if (BCrypt::validatePassword(password, select_password(username, 0))) {
       return 1;
     } else {
-      verbose && std::cout << "Invalid password" << std::endl;
       return 0;
     }
   }
@@ -157,7 +155,7 @@ class UserHandler : public RequestHandler {
       const char *username = json_request["username"].get<std::string>().c_str();
       const char *password = json_request["password"].get<std::string>().c_str();
 
-      if (!login(username, password, 0))
+      if (!login(username, password))
         return request::make_bad_request_response("Invalid username or password", req);
 
       // get user_id, generate session_id, set session_id, set session cookie
@@ -176,5 +174,24 @@ class UserHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_user_handler() {
+  pqxx::work txn(*c);
+  
+  /* Session Queries */
+  txn.conn().prepare("select_user_id_from_session",
+    "SELECT user_id FROM public.\"Sessions\" WHERE id = $1 AND expires_at > NOW() AND active = TRUE LIMIT 1;");
+  txn.conn().prepare("invalidate_session",
+    "UPDATE public.\"Sessions\" SET active = FALSE WHERE id = $1;");
+  txn.conn().prepare("set_session_id",
+    "INSERT INTO public.\"Sessions\" (id, user_id, created_at, last_accessed, expires_at, ip_address, active) "
+    "VALUES ($1, $2, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + ($3 || ' seconds')::interval, $4, TRUE) "
+    "RETURNING id;");
+
+  /* User Queries */
+  txn.conn().prepare("select_user_id",
+    "SELECT id from public.\"Users\" WHERE username = $1 LIMIT 1;");
+  txn.conn().prepare("select_password", 
+    "SELECT password FROM public.\"Users\" WHERE username = $1 LIMIT 1;");
+    
+  txn.commit();
   return new UserHandler();
 }

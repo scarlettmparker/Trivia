@@ -10,7 +10,7 @@ body {
   display: flex;
   flex-direction: column;
   left: 50%;
-  top: 45%;
+  top: 50%;
   transform: translate(-50%, -50%);
 
   /* container styling */
@@ -63,6 +63,13 @@ body {
   right: 3%;
   position: absolute;
   transform: translateY(-50%);
+}
+
+.password_button {
+  background: none;
+  border: none;
+  padding: 0;
+  height: fit-content;
 
   /* hover styling */
   user-select: none;
@@ -70,7 +77,7 @@ body {
   transition: filter 0.15s ease-in-out;
 }
 
-.show_password:hover {
+.password_button:hover {
   filter: brightness(0) saturate(100%) invert(56%) sepia(76%) saturate(692%) hue-rotate(317deg) brightness(107%) contrast(102%);
 }
 
@@ -86,7 +93,9 @@ body {
   border-radius: 25px;
   border: 1px solid #C0C0C0;
   background-color: rgba(255, 255, 255, 0.4);
+  user-select: none;
   cursor: pointer;
+  transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
 }
 
 .form_button:hover {
@@ -103,6 +112,7 @@ body {
   font-size: 22px;
   font-weight: 300;
   color: rgba(81, 69, 68, 0.6);
+  user-select: none;
 }
 
 .body_text {
@@ -114,16 +124,23 @@ body {
   color: #272121;
 }
 
-.forgot_text {
+.forgot_form {
   position: relative;
-  margin: auto;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-bottom: 1.5em;
+}
+
+.forgot_text {
+  position: absolute;
+  right: 0;
+}
+
+.error_text {
+  position: absolute;
+  color: #FA3D66;
 }
 
 .highlight_text {
   color: #FF6854;
-  user-select: none;
   cursor: pointer;
   transition: color 0.15s ease-in-out;
 }

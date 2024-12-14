@@ -1,0 +1,15 @@
+.alt_text {
+  display: block;
+  position: absolute;
+  white-space: nowrap;
+  overflow: hidden;
+
+  top: -90%;
+  left: 50%;
+  transform: translateX(-50%);
+
+  color: white;
+  background-color: rgba(58, 54, 55, 0.8);
+  padding: 0.25em 0.5em;
+  border-radius: 10px;
+}

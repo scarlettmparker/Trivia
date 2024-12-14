@@ -11,8 +11,7 @@
 
 namespace postgres {
   extern pqxx::connection * c;
-
-  void prepare_statements();
+    
   void init_connection();
   void close_connection();
 }

@@ -13,7 +13,7 @@ class CategoryHandler : public RequestHandler {
     * @param verbose Whether to print messages to stdout.
     * @return ID of the category if found, 0 otherwise.
     */
-    int select_category(const std::string& category_name, int verbose=0) {
+    int select_category(const std::string& category_name, int verbose) {
       try {
         pqxx::work txn(*c);
         pqxx::result r = txn.exec_prepared("select_category", category_name);
@@ -35,7 +35,7 @@ class CategoryHandler : public RequestHandler {
     * @param verbose Whether to print messages to stdout.
     * @return 1 if the category was created, 0 otherwise.
     */
-    int create_category(const char * category_name, int verbose=0) {
+    int create_category(const char * category_name, int verbose) {
       try {
         pqxx::work txn(*c);
         pqxx::result r = txn.exec_prepared("create_category", category_name);
@@ -62,7 +62,7 @@ class CategoryHandler : public RequestHandler {
     * @param verbose Whether to print messages to stdout.
     * @return 1 if the category was deleted, 0 otherwise.
     */
-    int delete_category(const char * category_name, int verbose=0) {
+    int delete_category(const char * category_name, int verbose) {
       if (c == nullptr) {
         verbose && std::cerr << "Database connection is not initialized" << std::endl;
         return 0;
@@ -156,5 +156,14 @@ class CategoryHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_category_handler() {
+  pqxx::work txn(*c);
+
+  txn.conn().prepare("create_category", 
+    "INSERT INTO public.\"Category\" (category_name) VALUES ($1) "
+    "ON CONFLICT (category_name) DO NOTHING RETURNING id;");
+  txn.conn().prepare("delete_category", 
+    "DELETE FROM public.\"Category\" WHERE category_name = $1 RETURNING id;");
+    
+  txn.commit();
   return new CategoryHandler();
 }

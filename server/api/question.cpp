@@ -13,7 +13,7 @@ class QuestionHandler : public RequestHandler {
    * @param verbose Whether to print messages to stdout.
    * @return ID of the question if found, 0 otherwise.
    */
-  int select_question(int question_id, int verbose=0) {
+  int select_question(int question_id, int verbose) {
     try{
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_question", question_id);
@@ -41,7 +41,7 @@ class QuestionHandler : public RequestHandler {
    * @return 1 if the question was created, 0 otherwise.
    */
   int create_question(const char * question, std::vector<std::string> answers,
-    int correct_answer, int category_id, int verbose=0) {
+    int correct_answer, int category_id, int verbose) {
     try {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("create_question", question, answers, correct_answer, category_id);
@@ -63,7 +63,7 @@ class QuestionHandler : public RequestHandler {
    * @param verbose Whether to print messages to stdout.
    * @return 1 if the question was deleted, 0 otherwise.
    */
-  int delete_question(int question_id, int verbose=0) {
+  int delete_question(int question_id, int verbose) {
     try {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("delete_question", question_id);
@@ -169,7 +169,7 @@ class QuestionHandler : public RequestHandler {
         return request::make_bad_request_response("Question id out of range", req);
       }
 
-      if (delete_question(question_id), 0) {
+      if (delete_question(question_id, 0)) {
         response_json["message"] = "Question deleted successfully";
         return request::make_ok_request_response(response_json.dump(4), req);
       } else {
@@ -182,5 +182,16 @@ class QuestionHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_question_handler() {
+  pqxx::work txn(*c);
+
+  txn.conn().prepare("select_question", 
+    "SELECT id FROM public.\"Question\" WHERE id = $1 LIMIT 1;");
+  txn.conn().prepare("create_question", 
+    "INSERT INTO public.\"Question\" (question, answers, correct_answer, category_id) "
+    "VALUES ($1, $2, $3, $4);");
+  txn.conn().prepare("delete_question", 
+    "DELETE FROM public.\"Question\" WHERE id = $1 RETURNING id;");
+
+  txn.commit();
   return new QuestionHandler();
 }
