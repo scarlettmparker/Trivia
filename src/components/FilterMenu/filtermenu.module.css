@@ -1,0 +1,73 @@
+.filter_container {
+  position: absolute;
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+
+  right: 0;
+  top: 50%;
+  width: 230px;
+  height: 36px;
+
+  border-radius: 20px;
+  transform: translateY(-50%);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85) 0%, rgba(254, 254, 254, 0.85) 70%);
+}
+
+.filter_button {
+  background: none;
+  border: none;
+  user-select: none;
+  cursor: pointer;
+
+  font-size: 16px;
+  padding: 18px 26px 18px 26px;
+  transition: filter 0.15s ease-in-out;
+}
+
+.filter_button:hover {
+  filter: brightness(0) saturate(100%) invert(100%) sepia(8%) saturate(15%) hue-rotate(305deg) brightness(101%) contrast(101%);
+}
+
+.filter_icon {
+  position: absolute;
+  border-radius: 20px;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.filter_icon_left {
+  left: 0%;
+}
+
+.filter_icon_right {
+  right: 0%;
+}
+
+.filter_icon:hover {
+  background-color: rgba(39, 33, 33, 0.85);
+}
+
+.button_container {
+  height: 100%;
+  width: 36px;
+}
+
+.left_button_container {
+  position: absolute;
+  left: 7.5%;
+}
+
+.right_button_container {
+  position: absolute;
+  right: 7.5%;
+}
+
+.body_text {
+  font-size: 20px;
+  color: #272121;
+}
+
+.filter_text {
+  user-select: none;
+}

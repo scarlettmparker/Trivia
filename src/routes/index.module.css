@@ -1,0 +1,109 @@
+.game_container {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+
+  width: 1500px;
+  height: 850px;
+
+  border-radius: 20px;
+  font-family: "Inter";
+  font-weight: 400;
+
+  /* shadow and border styling*/
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(254, 254, 254, 0.55) 70%);
+}
+
+.play_container {
+  position: absolute;
+  width: 565px;
+  height: 40%;
+
+  background: linear-gradient(180deg, rgba(255, 255, 255, 1) 15%, rgba(254, 254, 254, 0.55) 60%);
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-bottom: none;
+  border-left: none;
+  border-radius: 20px 20px 0px 20px;
+
+  bottom: 0;
+}
+
+.user_container {
+  display: flex;
+  flex-direction: column;
+  width: 475px;
+  height: calc(30% - 40px);
+  padding: 40px 45px 20% 45px;
+
+  border-radius: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  border-left: none;
+  border-top: none;
+  background: linear-gradient(180deg, rgba(255, 236, 240, 1) 0%, rgba(255, 171, 198, 0.55) 70%);
+}
+
+.user_display_container {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  width: 16rem;
+}
+
+.divider {
+  position: relative;
+  flex-grow: 1;
+  height: 2px;
+  background-color: #272121;
+  margin: 0 20px;
+  border: none;
+  top: 50%;
+}
+
+.category_container {
+  position: relative;
+  top: 70px;
+}
+
+.category_header {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+}
+
+.header_text {
+  font-size: 40px;
+  font-weight: 450;
+  color: #FF6854;
+}
+
+.sub_header_text {
+  font-size: 28px;
+  font-weight: 500;
+  color: #272121;
+}
+
+.s_sub_header_text {
+  font-size: 24px;
+  font-weight: 400;
+  color: #272121;
+}
+
+.body_text {
+  font-size: 20px;
+  color: #272121;
+}
+
+.text_outline {
+  text-shadow:
+    2px 2px 0 rgba(255, 255, 255, 0.5),
+    -2px 2px 0 rgba(255, 255, 255, 0.5),
+    2px -2px 0 rgba(255, 255, 255, 0.5),
+    -2px -2px 0 rgba(255, 255, 255, 0.5);
+}

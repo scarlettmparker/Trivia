@@ -6,7 +6,7 @@ import styles from './buttonwithalt.module.css';
  * Button with an image and an alt text that appears when the mouse hovers over the button.
  * @param src Source of the image.
  * @param alt_text Alt text of the image.
- * @param class_name Class of the container div.
+ * @param class Class of the container div.
  * @param button_class Class of the button.
  * @param width Width of the button.
  * @param height Height of the button.
@@ -18,11 +18,10 @@ const ButtonWithAlt = ({ src, alt_text, class: class_name, button_class, width, 
   const [mouseover, setMouseover] = createSignal(false);
 
   return (
-    <div class={class_name} style={{ width: `${width}px`, height: `${height}px` }} >
+    <div class={class_name} onmouseover={() => setMouseover(true)} onmouseleave={() => setMouseover(false)} >
       {mouseover() && <span class={styles.alt_text}>{alt_text()}</span>}
-      <button class={button_class} onclick={onclick_} aria-label={alt_text()} style={{ width: `${width}px`, 
-        height: `${height}px` }} onmouseover={() => setMouseover(true)} onmouseleave={() => setMouseover(false)} tabindex={-1}>
-        <img src={src()} width={width} height={height} draggable={draggable} alt={alt_text()} />
+      <button class={button_class} onclick={onclick_} aria-label={alt_text()} style={{ width: `${width}px`, height: `${height}px` }} tabindex={-1}>
+        <img src={src()} class={styles.alt_image} width={width} height={height} draggable={draggable} alt={alt_text()} />
       </button>
     </div>
   );
