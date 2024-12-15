@@ -87,6 +87,12 @@ class QuestionHandler : public RequestHandler {
   }
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
+    if (middleware::rate_limited(ip_address))
+      return request::make_bad_request_response("Rate limited", req);
+
+    std::string session_id = request::get_session_id_from_cookie(req);
+    int user_id = request::select_user_data_from_session(session_id, 0).user_id;
+
     if (req.method() == http::verb::get) {
       /**
         * -------------- GET QUESTION --------------
@@ -119,6 +125,11 @@ class QuestionHandler : public RequestHandler {
       /**
         * -------------- PUT NEW QUESTION --------------
         */
+
+      /* verify permissions*/
+      std::string * required_permissions = new std::string[1]{"question.put"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+        return request::make_unauthorized_response("Unauthorized", req);
 
       auto json_request = nlohmann::json::object();
       try {

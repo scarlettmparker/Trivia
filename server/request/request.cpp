@@ -9,6 +9,33 @@ namespace request {
   std::unordered_map<std::string, CachedUserData> session_cache;
 
   /**
+   * Clean up the session cache by removing expired entries.
+   */
+  void cleanup_cache() {
+    std::lock_guard<std::mutex> lock(request::cache_mutex);
+    auto now = std::chrono::system_clock::now();
+    
+    for (auto it = request::session_cache.begin(); it != request::session_cache.end();) {
+      if (it->second.expiry < now) {
+        it = request::session_cache.erase(it);
+      } else {
+        ++it;
+      }
+    }
+
+    // if cache is too large, remove the oldest entries
+    if (request::session_cache.size() > request::MAX_CACHE_SIZE) {
+      auto oldest = request::session_cache.begin();
+      for (auto it = request::session_cache.begin(); it != request::session_cache.end(); ++it) {
+        if (it->second.expiry < oldest->second.expiry) {
+          oldest = it;
+        }
+      }
+      request::session_cache.erase(oldest);
+    }
+  }
+
+  /**
    * Invalidate a session by setting it to inactive.
    * @param session_id Session ID to invalidate.
    * @param verbose Whether to print messages to stdout.
@@ -28,6 +55,42 @@ namespace request {
   }
 
   /**
+   * Get the permissions for a user by their ID.
+   * This is used to check if a user has the required permissions to access an endpoint.
+   * @param user_id ID of the user to get the permissions for.
+   * @param verbose Whether to print messages to stdout.
+   * @return Array of permissions for the user.
+   */
+  UserPermissions get_user_permissions(int user_id, int verbose) {
+    UserPermissions result = {0, nullptr};
+    try {
+      pqxx::work txn(*c);
+      pqxx::result r = txn.exec_prepared("get_user_permissions", user_id);
+      txn.commit();
+
+      if (r.empty()) {
+        verbose && std::cerr << "User with ID " << user_id << " not found" << std::endl;
+        return result;
+      }
+
+      result.permission_count = r.size();
+      result.permissions = new Permission[r.size()];
+      
+      for (size_t i = 0; i < r.size(); i++) {
+        result.permissions[i].id = r[i][0].as<int>();
+        result.permissions[i].permission_name = r[i][1].c_str();
+      }
+      return result;
+        
+    } catch (const std::exception &e) {
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+    } catch (...) {
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+    }    
+    return result;
+  }
+
+  /**
    * Get the session ID from a cookie in a request.
    * @param req Request to get the session ID from.
    * @return Session ID from the cookie.
@@ -41,6 +104,58 @@ namespace request {
       session_id = std::string(cookie_header.substr(pos + 10));
     }
     return session_id;
+  }
+  
+  /**
+   * Select the user data from the session ID.
+   * @param session_id Session ID to select the user ID from.
+   * @param verbose Whether to print messages to stdout.
+   * @return User data if the session is valid, {-1, ""} otherwise.
+   */
+  UserData select_user_data_from_session(const std::string& session_id, int verbose) {
+    {
+      std::lock_guard<std::mutex> lock(request::cache_mutex);
+      auto it = request::session_cache.find(session_id);
+      if (it != request::session_cache.end()) {
+        auto now = std::chrono::system_clock::now();
+        if (it->second.expiry > now) {
+          return {it->second.user_id, it->second.username};
+        }
+        request::session_cache.erase(it);
+      }
+    }
+
+    try {
+      pqxx::work txn(*postgres::c);
+      pqxx::result r = txn.exec_prepared("select_user_data_from_session", session_id);
+      txn.commit();
+
+      if (r.empty()) {
+        verbose && std::cerr << "Session ID " << session_id << " not found" << std::endl;
+        request::invalidate_session(session_id, 0);
+        return {-1, ""};
+      }
+
+      int user_id = std::stoi(r[0][0].c_str());
+      std::string username = r[0][1].c_str();
+      
+      {
+        std::lock_guard<std::mutex> lock(request::cache_mutex);
+        auto expiry = std::chrono::system_clock::now() + std::chrono::seconds(request::CACHE_TTL_SECONDS);
+        request::session_cache[session_id] = {user_id, username, expiry};
+        
+        if (request::session_cache.size() > request::MAX_CACHE_SIZE) {
+          cleanup_cache();
+        }
+      }
+      
+      return {user_id, username};
+    } catch (const std::exception &e) {
+      verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
+    } catch (...) {
+      verbose && std::cerr << "Unknown error while executing query" << std::endl;
+    }
+    return {-1, ""};
   }
 
    /**

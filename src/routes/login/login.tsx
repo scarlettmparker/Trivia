@@ -58,7 +58,7 @@ const Login = () => {
   });
 
   return (
-    <div>
+    <>
       <Title>Trivia | Login</Title>
       <div class={styles.login_container}>
         <span class={styles.welcome_text}>Welcome back!</span>
@@ -86,7 +86,7 @@ const Login = () => {
           Don't have an account? <a class={styles.highlight_text}>Register</a>
         </span>
       </div>
-    </div>
+    </>
   )
 };
 

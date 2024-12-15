@@ -59,7 +59,7 @@ body {
 
 .show_password {
   z-index: 2;
-  top: 50%;
+  top: calc(50% - 3px);
   right: 3%;
   position: absolute;
   transform: translateY(-50%);
@@ -109,7 +109,8 @@ body {
   margin-top: 2.25em;
 }
 
-.input_text, .input_text::placeholder {
+.input_text,
+.input_text::placeholder {
   font-family: "Inter";
   font-size: 22px;
   font-weight: 300;

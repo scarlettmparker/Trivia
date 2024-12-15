@@ -1,5 +1,6 @@
 .alt_text {
-  display: block;
+  display: flex;
+  justify-content: center;
   position: absolute;
   white-space: nowrap;
   overflow: hidden;
@@ -16,8 +17,8 @@
 }
 
 .alt_image {
-  position: absolute;
+  position: relative;
   left: 50%;
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -35%);
 }

@@ -4,6 +4,7 @@
 #include "../request/request_handler.hpp"
 #include "../request/request.hpp"
 #include "../request/postgres.hpp"
+#include "../request/middleware.hpp"
 #include "../parser/parser.hpp"
 
 #include <boost/beast/http.hpp>

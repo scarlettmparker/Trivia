@@ -42,7 +42,7 @@
   height: calc(30% - 40px);
   padding: 40px 45px 20% 45px;
 
-  border-radius: 20px;
+  border-radius: 20px 0px 0px 0px;
   border: 1px solid rgba(0, 0, 0, 0.15);
   border-left: none;
   border-top: none;
@@ -68,13 +68,20 @@
 
 .category_container {
   position: relative;
-  top: 70px;
+  top: 50px;
 }
 
 .category_header {
   position: relative;
   display: flex;
   flex-direction: row;
+  margin-bottom: 0.75em;
+}
+
+.category_list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(229px, 1fr));
+  gap: 1em;
 }
 
 .header_text {
