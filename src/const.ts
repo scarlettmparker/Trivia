@@ -6,6 +6,12 @@ export const ENV = {
   VITE_SERVER_PORT: import.meta.env.VITE_SERVER_PORT,
 };
 
+export interface SuperUserData {
+  user_id: number;
+  username: string;
+  superuser: boolean;
+}
+
 export interface UserData {
   user_id: number;
   username: string;

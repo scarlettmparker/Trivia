@@ -1,4 +1,5 @@
-import { UserData, CacheData, ENV, CACHE_KEY } from "~/const";
+import { UserData, CacheData, ENV, CACHE_KEY, SuperUserData } from "~/const";
+import { Navigator } from '@solidjs/router';
 
 /**
  * Delay the execution of the function.
@@ -25,6 +26,7 @@ function get_cached_user_data(CACHE_DURATION: number, CACHE_KEY: string): UserDa
 /**
  * Fetch the user data from the server.
  * This function sends a GET request to the server to get the user data.
+ * @param CACHE_KEY Cache key to store the user data.
  * @returns UserData object.
  */
 async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
@@ -35,7 +37,6 @@ async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     const controller = new AbortController();
     const timeout_id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
-
     try {
       const response = await fetch(
         `http://${ENV.VITE_SERVER_HOST}:${ENV.VITE_SERVER_PORT}/api/session`,
@@ -50,12 +51,10 @@ async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
           signal: controller.signal,
         }
       );
-
       if (response.status == 401) {
         console.error('Unauthorized');
         return null;
       }
-
       const data = await response.json();
       if (data.status === 'ok') {
         const user_data = data.message as UserData;
@@ -65,7 +64,6 @@ async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
         );
         return user_data;
       }
-
     } catch (error) {
       console.error(`Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`, error);
       if (attempt < MAX_RETRIES) {
@@ -76,7 +74,57 @@ async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
       clearTimeout(timeout_id);
     }
   }
+  return null;
+}
 
+/**
+ * Fetch the superuser data from the server.
+ * This function sends a GET request to the server to get the superuser data.
+ * It will return a boolean for "superuser" along with the regular user data.
+ * This is to ensure that normal users cannot access the admin panel.
+ * @returns SuperUserData object.
+ */
+async function fetch_superuser_data(): Promise<SuperUserData | null> {
+  const MAX_RETRIES = 3;
+  const BASE_DELAY = 1000;
+  const REQUEST_TIMEOUT = 1000;
+
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    const controller = new AbortController();
+    const timeout_id = setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
+    try {
+      const response = await fetch(
+        `http://${ENV.VITE_SERVER_HOST}:${ENV.VITE_SERVER_PORT}/api/session?superuser=true`,
+        {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Connection': 'keep-alive',
+          },
+          credentials: 'include',
+          signal: controller.signal,
+        }
+      );
+      if (response.status == 401) {
+        console.error('Unauthorized');
+        return null;
+      }
+      const data = await response.json();
+      if (data.status == 'ok') {
+        const user_data = data.message as SuperUserData;
+        return user_data;
+      }
+    } catch (error) {
+      console.error(`Attempt ${attempt + 1}/${MAX_RETRIES + 1} failed:`, error);
+      if (attempt < MAX_RETRIES) {
+        const backoff_delay = BASE_DELAY * Math.pow(2, attempt);
+        await delay(backoff_delay);
+      }
+    } finally {
+      clearTimeout(timeout_id);
+    }
+  }
   return null;
 }
 
@@ -92,6 +140,17 @@ export async function get_user_data_from_session(CACHE_DURATION: number, CACHE_K
   if (fetched_data) return fetched_data;
 
   return { user_id: -1, username: "" };
+}
+
+/**
+ * Get the superuser data from the session.
+ * @returns SuperUserData object containing username, user ID, and superuser status.
+ */
+export async function get_superuser_data_from_session(): Promise<SuperUserData> {
+  const fetched_data = await fetch_superuser_data();
+  if (fetched_data) return fetched_data;
+
+  return { user_id: -1, username: "", superuser: false};
 }
 
 /**
@@ -125,10 +184,11 @@ export async function logout(userId: number, setUserId: (id: number) => void, se
     
     setUserId(-1);
     setUsername("");
-    window.location.reload();
-  } else { // just debug for nwo
+    return true;
+  } else { // just debug for now
     console.error('Failed to log out:', data.message);
   }
+  return false;
 }
 
 export default null;

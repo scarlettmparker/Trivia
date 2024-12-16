@@ -92,7 +92,6 @@ class QuestionHandler : public RequestHandler {
 
     std::string session_id = request::get_session_id_from_cookie(req);
     int user_id = request::select_user_data_from_session(session_id, 0).user_id;
-
     if (req.method() == http::verb::get) {
       /**
         * -------------- GET QUESTION --------------
@@ -126,7 +125,6 @@ class QuestionHandler : public RequestHandler {
         * -------------- PUT NEW QUESTION --------------
         */
 
-      /* verify permissions*/
       std::string * required_permissions = new std::string[1]{"question.put"};
       if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
         return request::make_unauthorized_response("Unauthorized", req);
@@ -164,6 +162,10 @@ class QuestionHandler : public RequestHandler {
       /**
         * -------------- DELETE QUESTION --------------
         */
+
+      std::string * required_permissions = new std::string[1]{"question.delete"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+        return request::make_unauthorized_response("Unauthorized", req);
 
       auto question_opt = request::parse_from_request(req, "question_id");
       if (!question_opt) {

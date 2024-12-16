@@ -5,6 +5,7 @@ import "./index.css";
 
 import Index from './routes/index';
 import Login from './routes/login';
+import Admin from "./routes/admin";
 import { UserProvider } from "./usercontext";
 
 render(
@@ -14,6 +15,7 @@ render(
         <Router>
           <Route path="/" component={Index} />
           <Route path="/login" component={Login} />
+          <Route path="/admin" component={Admin} />
         </Router>
       </MetaProvider>
     </UserProvider>

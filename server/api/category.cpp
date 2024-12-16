@@ -91,11 +91,20 @@ class CategoryHandler : public RequestHandler {
   }
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
-    /**
-      * -------------- GET CATEGORY --------------
-      */
+    if (middleware::rate_limited(ip_address))
+      return request::make_bad_request_response("Rate limited", req);
 
+    std::string session_id = request::get_session_id_from_cookie(req);
+    int user_id = request::select_user_data_from_session(session_id, 0).user_id;
     if (req.method() == http::verb::get) {
+      /**
+       * -------------- GET CATEGORY --------------
+       */
+
+      std::string * required_permissions = new std::string[1]{"category.admin"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+        return request::make_unauthorized_response("Unauthorized", req);
+
       auto category_opt = request::parse_from_request(req, "category_name");
       if (!category_opt) {
           return request::make_bad_request_response("Invalid category parameters", req);
@@ -112,6 +121,10 @@ class CategoryHandler : public RequestHandler {
       /**
         * -------------- PUT NEW CATEGORY --------------
         */
+
+      std::string * required_permissions = new std::string[1]{"category.put"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+        return request::make_unauthorized_response("Unauthorized", req);
 
       auto json_request = nlohmann::json::object();
       try {
@@ -136,6 +149,10 @@ class CategoryHandler : public RequestHandler {
       /**
         * -------------- DELETE CATEGORY --------------
         */
+
+      std::string * required_permissions = new std::string[1]{"category.delete"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+        return request::make_unauthorized_response("Unauthorized", req);
 
       auto category_opt = request::parse_from_request(req, "category_name");
       if (!category_opt) {

@@ -18,15 +18,30 @@ class SessionHandler : public RequestHandler {
       }
 
       request::UserData user_data = request::select_user_data_from_session(session_id, 0);
-      
       if (user_data.user_id == -1) {
         return request::make_unauthorized_response("Invalid or expired session", req);
       }
 
+      auto superuser_opt = request::parse_from_request(req, "superuser");
+      std::string superuser = *superuser_opt;
       nlohmann::json response_json;
+
+      if (superuser != "true") {
+        response_json["message"] = "Session validated successfully";
+        response_json["user_id"] = user_data.user_id;
+        response_json["username"] = user_data.username;
+        return request::make_ok_request_response(response_json.dump(4), req);
+      }
+
+      std::string * required_permissions = new std::string[1]{"superuser"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_data.user_id, 0), required_permissions, 1))
+        return request::make_unauthorized_response("Unauthorized", req);
+        
+      // allow user to access admin panel
       response_json["message"] = "Session validated successfully";
       response_json["user_id"] = user_data.user_id;
       response_json["username"] = user_data.username;
+      response_json["superuser"] = true;
       return request::make_ok_request_response(response_json.dump(4), req);
     } else {
       return request::make_bad_request_response("Invalid request method", req);

@@ -1,0 +1,29 @@
+
+.user_display_container {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  width: 16rem;
+  align-items: center;
+}
+
+.divider {
+  position: relative;
+  flex-grow: 1;
+  height: 2px;
+  background-color: #272121;
+  margin: 0 20px;
+  border: none;
+}
+
+.header_text {
+  font-size: 40px;
+  font-weight: 450;
+  color: #FF6854;
+}
+
+.s_sub_header_text {
+  font-size: 24px;
+  font-weight: 400;
+  color: #272121;
+}
