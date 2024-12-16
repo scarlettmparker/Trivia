@@ -193,7 +193,7 @@ class UserHandler : public RequestHandler {
       * -------------- LOGIN USER --------------
       */
 
-      auto json_request = nlohmann::json::object();
+      nlohmann::json json_request;
       try {
         json_request = nlohmann::json::parse(req.body());
       } catch (const nlohmann::json::parse_error& e) {
@@ -206,8 +206,10 @@ class UserHandler : public RequestHandler {
       if (!json_request["username"].is_string() || !json_request["password"].is_string())
         return request::make_bad_request_response("Invalid request: 'username' and 'password' must be strings.", req);
 
-      const char *username = json_request["username"].get<std::string>().c_str();
-      const char *password = json_request["password"].get<std::string>().c_str();
+      std::string_view username_str = json_request["username"].get<std::string_view>();
+      std::string_view password_str = json_request["password"].get<std::string_view>();
+      const char *username = username_str.data();
+      const char *password = password_str.data();
 
       if (!login(username, password))
         return request::make_bad_request_response("Invalid username or password", req);

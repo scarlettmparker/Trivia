@@ -90,7 +90,7 @@ class QuestionHandler : public RequestHandler {
     if (middleware::rate_limited(ip_address))
       return request::make_bad_request_response("Rate limited", req);
 
-    std::string session_id = request::get_session_id_from_cookie(req);
+    std::string_view session_id = request::get_session_id_from_cookie(req);
     int user_id = request::select_user_data_from_session(session_id, 0).user_id;
     if (req.method() == http::verb::get) {
       /**

@@ -11,7 +11,7 @@
   width: 550px;
   padding-left: 25px;
   padding-right: 25px;
-  height: 64px;
+  height: 3.5em;
 
   background-color: white;
   border-radius: 0px 0px 20px 20px;
@@ -25,7 +25,7 @@
   justify-content: center;
   align-items: center;
 
-  padding: 10px 20px 10px 20px;
+  padding: 8px 20px 8px 20px;
   border-radius: 20px;
   color: #272121;
   font-family: "Inter";

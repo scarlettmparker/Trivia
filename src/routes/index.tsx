@@ -9,40 +9,6 @@ import styles from './index.module.css';
 import WelcomeMessage from '~/components/WelcomeMessage';
 import Navbar from '~/components/Navbar';
 
-/**
- * Helper function to insert a question into the database.
- * Requires permission question.put to be set in the server.
- * Otherwise the request will be rejected and the user will receive 401 Unauthorized.
- * 
- * @param question Question to insert.
- * @param answers Answers to the question.
- * @param category_id Category ID of the question.
- * @param correct_answer Correct answer index.
- */
-async function insert_question(question: string, answers: string[], category_id: number, correct_answer: number) {
-  const response = await fetch(
-    `http://${ENV.VITE_SERVER_HOST}:${ENV.VITE_SERVER_PORT}/api/question`,
-    {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Connection': 'keep-alive',
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        question: question,
-        answers: answers,
-        category_id: category_id,
-        correct_answer: correct_answer
-      })
-    }
-  )
-
-  const data = await response.json();
-  return data.message;
-}
-
 const Index: Component = () => {
   const { userId, setUserId, setUsername } = useUser();
   const [filter, setFilter] = createSignal(0);
@@ -54,8 +20,9 @@ const Index: Component = () => {
       setLoading(false);
       return;
     }
-    const user_data = await get_user_data_from_session(CACHE_DURATION, CACHE_KEY);
 
+    const user_data = await get_user_data_from_session(CACHE_DURATION, CACHE_KEY);
+    
     setUserId(user_data.user_id);
     setUsername(user_data.username);
     setLoading(false);
@@ -65,7 +32,7 @@ const Index: Component = () => {
     <>
       <Title>Trivia | Home</Title>
       {loading() ? (
-        <Navbar placeholder={true} />) : (userId() !== -1 && <Navbar />
+        <Navbar placeholder={true} />) : (userId() !== -1 ? <Navbar /> : <Navbar placeholder={true} />
       )}
       <div class={styles.game_container}>
         <div class={styles.user_container}>

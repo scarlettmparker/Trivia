@@ -12,7 +12,7 @@ class LogoutHandler : public RequestHandler {
    * @param verbose Whether to print messages to stdout.
    * @return User ID if the session is valid, -1 otherwise.
    */
-  int select_user_id_from_session(std::string session_id, int verbose) {
+  int select_user_id_from_session(std::string_view session_id, int verbose) {
     try {
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_user_id_from_session", session_id);
@@ -52,7 +52,7 @@ class LogoutHandler : public RequestHandler {
         return request::make_bad_request_response("Invalid user id parameters", req);
 
       const int user_id = json_request["user_id"];
-      std::string session_id = request::get_session_id_from_cookie(req);
+      std::string_view session_id = request::get_session_id_from_cookie(req);
 
       if (session_id.empty())
         return request::make_unauthorized_response("Invalid or expired session", req);

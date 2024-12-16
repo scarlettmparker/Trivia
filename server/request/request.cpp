@@ -6,7 +6,7 @@ namespace request {
   size_t MAX_CACHE_SIZE = 1000;
   int CACHE_TTL_SECONDS = 60;
   std::mutex cache_mutex;
-  std::unordered_map<std::string, CachedUserData> session_cache;
+  std::unordered_map<std::string_view, CachedUserData> session_cache;
 
   /**
    * Clean up the session cache by removing expired entries.
@@ -40,7 +40,7 @@ namespace request {
    * @param session_id Session ID to invalidate.
    * @param verbose Whether to print messages to stdout.
    */
-  void invalidate_session(const std::string& session_id, int verbose) {
+  void invalidate_session(const std::string_view& session_id, int verbose) {
     std::lock_guard<std::mutex> lock(cache_mutex);
     session_cache.erase(session_id);
     try {
@@ -95,15 +95,24 @@ namespace request {
    * @param req Request to get the session ID from.
    * @return Session ID from the cookie.
    */
-  std::string get_session_id_from_cookie(const http::request<http::string_body>& req) {
-    auto cookie_header = req[http::field::cookie];
-    std::string session_id;
-
-    size_t pos = cookie_header.find("sessionId=");
-    if (pos != std::string::npos) {
-      session_id = std::string(cookie_header.substr(pos + 10));
+  std::string_view get_session_id_from_cookie(const http::request<http::string_body>& req) {
+    auto cookie_iter = req.find(http::field::cookie);
+    if (cookie_iter == req.end()) {
+        return {};
     }
-    return session_id;
+    const boost::string_view cookie = cookie_iter->value();
+    if (cookie.empty()) {
+        return {};
+    }
+    constexpr boost::string_view SESSION_KEY = "sessionId=";
+    auto pos = cookie.find(SESSION_KEY);
+    if (pos == std::string::npos) {
+        return {};
+    }
+    pos += SESSION_KEY.length();
+    auto end = cookie.find(';', pos);
+    return std::string_view(cookie.data() + pos, 
+      end == std::string::npos ? cookie.length() - pos : end - pos);
   }
   
   /**
@@ -112,7 +121,7 @@ namespace request {
    * @param verbose Whether to print messages to stdout.
    * @return User data if the session is valid, {-1, ""} otherwise.
    */
-  UserData select_user_data_from_session(const std::string& session_id, int verbose) {
+  UserData select_user_data_from_session(const std::string_view& session_id, int verbose) {
     {
       std::lock_guard<std::mutex> lock(request::cache_mutex);
       auto it = request::session_cache.find(session_id);
@@ -201,7 +210,7 @@ namespace request {
     auto query_pos = target.find('?');
 
     if (query_pos == std::string::npos) {
-        std::cout << "No query string found in URL" << std::endl;
+        // std::cout << "No query string found in URL" << std::endl;
         return std::nullopt;
     }
 
@@ -209,7 +218,7 @@ namespace request {
     auto params = parse_query_string(std::string(query));
 
     if (params.find(parameter) == params.end()) {
-        std::cout << "Missing category parameter" << std::endl;
+        // std::cout << "Missing category parameter" << std::endl;
         return std::nullopt;
     }
     

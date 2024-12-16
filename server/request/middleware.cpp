@@ -8,7 +8,7 @@ namespace middleware {
 
   /**
    * Check if a user has the required permissions.
-   * This function checks if the user has all of the required permissions to access a resource.
+   * This function checks if the user has one of the required permissions to access a resource.
    *
    * @param user_permissions Permissions the user has.
    * @param required_permissions Permissions required to access the resource.
@@ -24,8 +24,8 @@ namespace middleware {
     }
     
     for (int i = 0; i < num_permissions; i++) {
-      if (permission_set.find(required_permissions[i]) == permission_set.end())
-        return 0;
+      if (permission_set.find(required_permissions[i]) != permission_set.end())
+        return 1;
     }
     return 1;
   }

@@ -19,7 +19,9 @@ const Navbar = ({ placeholder }: NavbarProps) => {
 
   return (
     <div class={styles.nav_bar}>
-      {!placeholder! && (
+      {placeholder! ? (
+        <span class={styles.nav_bar_item} onclick={() => navigate('/login')}>Login</span>
+      ) : (
         <span class={styles.nav_bar_item} onclick={async () => await redirect()}>Logout</span>
       )}
     </div>

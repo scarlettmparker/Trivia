@@ -4,6 +4,16 @@ using namespace postgres;
 class CategoryHandler : public RequestHandler {
   private:
   
+  struct Category {
+    std::string category_name;
+    int id;
+  };
+
+  struct CategoryData {
+    Category * categories;
+    int count;
+  };
+
   /**
   * Select a category by name from the database.
   * @param category_name Name of the category to select.
@@ -24,6 +34,46 @@ class CategoryHandler : public RequestHandler {
       verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     }
     return 0;
+  }
+
+  /**
+   * Get a list of category data (names and IDs) from the database.
+   * This is used to display on the admin panel for category management.
+   * 
+   * @param limit Number of categories to fetch.
+   * @param offset Offset to start fetching categories from.
+   * @param verbose Whether to print messages to stdout.
+   * @return Category Data names and IDs if found, nullptr otherwise.
+   */
+  CategoryData get_category_data(int limit, int offset, int verbose) {
+    try {
+      pqxx::work txn(*c);
+      pqxx::result r = txn.exec_prepared("select_category_names_pagington", limit, offset * limit);
+      int count = r.size();
+      if (count == 0)
+          return {nullptr, 0};
+
+      std::unique_ptr<Category[]> categories;
+      try {
+        categories = std::make_unique<Category[]>(count);
+      } catch (const std::bad_alloc& e) {
+        std::cerr << "Memory allocation failed: " << e.what() << std::endl;
+        return {nullptr, 0};
+      }
+
+      for (int i = 0; i < count; ++i) {
+        categories[i].category_name = r[i][0].as<std::string>();
+        categories[i].id = r[i][1].as<int>();
+      }
+
+      return {categories.release(), count};
+    } catch (const std::exception &e) {
+      std::cerr << "Error executing query: " << e.what() << std::endl;
+    } catch (...) {
+      std::cerr << "Unknown error while executing query" << std::endl;
+    }
+
+    return {nullptr, 0};
   }
   
   /**
@@ -94,29 +144,77 @@ class CategoryHandler : public RequestHandler {
     if (middleware::rate_limited(ip_address))
       return request::make_bad_request_response("Rate limited", req);
 
-    std::string session_id = request::get_session_id_from_cookie(req);
+    std::string_view session_id = request::get_session_id_from_cookie(req);
     int user_id = request::select_user_data_from_session(session_id, 0).user_id;
     if (req.method() == http::verb::get) {
       /**
        * -------------- GET CATEGORY --------------
        */
 
-      std::string * required_permissions = new std::string[1]{"category.admin"};
-      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+      std::optional<std::string> category_opt = request::parse_from_request(req, "category_name");
+
+      // admin category stuff to get all category data
+      if (category_opt.has_value()) {
+        std::string * required_permissions = new std::string[1]{"category.admin"};
+        if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+          return request::make_unauthorized_response("Unauthorized", req);
+
+        auto& category = category_opt.value();
+        parser::Category cat = parser::parse_category("../questions/", category.c_str());
+        if (strncmp(cat.category, "NO_CATEGORY", 10) == 0)
+          return request::make_bad_request_response("Category not found", req);
+        return request::make_ok_request_response(parser::fetch_category(cat).dump(), req);
+      }
+
+      std::optional<std::string> superuser_opt = request::parse_from_request(req, "superuser");
+      std::optional<std::string> pages_opt = request::parse_from_request(req, "page_size");
+      std::optional<std::string> offset_opt = request::parse_from_request(req, "page");
+
+      // deal with params in query, if no offset default to 0
+      int offset_int;
+      if (!superuser_opt.has_value() || (superuser_opt.has_value() && superuser_opt.value() != "true"))
+        return request::make_bad_request_response("Endpoint not implemented", req);
+      if (!pages_opt.has_value()) 
+        return request::make_bad_request_response("Invalid request: Missing required field (page_size).", req);
+      if (!offset_opt.has_value())
+        offset_int = 0;
+
+      auto& pages = pages_opt.value();
+      auto& offset = offset_opt.value();
+      int pages_int;
+      
+      std::string * required_permissions = new std::string[2]{"superuser", "category.admin"};
+      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 2))
         return request::make_unauthorized_response("Unauthorized", req);
 
-      auto category_opt = request::parse_from_request(req, "category_name");
-      if (!category_opt) {
-          return request::make_bad_request_response("Invalid category parameters", req);
+      try {
+        pages_int = std::stoi(pages);
+        offset_int = std::stoi(offset);
+      } catch (const std::invalid_argument& e) {
+        return request::make_bad_request_response("Invalid request: 'page_size|page' must be an integer.", req);
+      } catch (const std::out_of_range& e) {
+        return request::make_bad_request_response("Invalid request: 'page_size|page' value out of range.", req);
+      }
+      
+      nlohmann::json response_json;
+      CategoryData category_data = get_category_data(pages_int, offset_int, 0);
+      if (category_data.count == 0) {
+        return request::make_bad_request_response("No categories found", req);
       }
 
-      std::string category = *category_opt;
-      parser::Category cat = parser::parse_category("../questions/", category.c_str());
-      if (strncmp(cat.category, "NO_CATEGORY", 10) == 0) {
-          return request::make_bad_request_response("Category not found", req);
+      response_json["message"] = "Categories fetched successfully";
+      response_json["categories"] = nlohmann::json::array();
+
+      // fill response with category data
+      for (int i = 0; i < category_data.count; ++i) {
+        nlohmann::json category;
+        category["category_name"] = category_data.categories[i].category_name;
+        category["id"] = category_data.categories[i].id;
+        response_json["categories"].push_back(category);
       }
 
-      return request::make_ok_request_response(parser::fetch_category(cat).dump(), req);
+      delete[] category_data.categories;
+      return request::make_ok_request_response(response_json.dump(4), req);
     } else if (req.method() == http::verb::put) {
       /**
         * -------------- PUT NEW CATEGORY --------------
@@ -177,6 +275,8 @@ class CategoryHandler : public RequestHandler {
 extern "C" RequestHandler* create_category_handler() {
   pqxx::work txn(*c);
 
+  txn.conn().prepare("select_category_names_pagington",
+    "SELECT category_name, id FROM public.\"Category\" ORDER BY category_name ASC LIMIT $1 OFFSET $2;");
   txn.conn().prepare("create_category", 
     "INSERT INTO public.\"Category\" (category_name) VALUES ($1) "
     "ON CONFLICT (category_name) DO NOTHING RETURNING id;");

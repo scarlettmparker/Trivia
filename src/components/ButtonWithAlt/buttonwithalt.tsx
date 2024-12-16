@@ -20,13 +20,13 @@ const ButtonWithAlt = ({ src, alt_text, class: class_name, button_class, width, 
 
   const handle_mouse_move = (e: MouseEvent) => {
     if (!container_ref) return;
-    
+
     const rect = container_ref.getBoundingClientRect();
-    const is_inside = e.clientX >= rect.left && 
-                     e.clientX <= rect.right && 
-                     e.clientY >= rect.top && 
-                     e.clientY <= rect.bottom;
-    
+    const is_inside = e.clientX >= rect.left &&
+      e.clientX <= rect.right &&
+      e.clientY >= rect.top &&
+      e.clientY <= rect.bottom;
+
     setMouseover(is_inside);
   };
 
@@ -36,7 +36,7 @@ const ButtonWithAlt = ({ src, alt_text, class: class_name, button_class, width, 
   });
 
   return (
-    <div ref={container_ref} class={class_name} onclick={onclick_}>
+    <div ref={container_ref} class={class_name} onclick={onclick_} >
       {mouseover() && <span class={styles.alt_text}>{alt_text()}</span>}
       <button class={button_class} aria-label={alt_text()} style={{ width: `${width}px`, height: `${height}px` }} tabindex={-1} >
         <img src={src()} class={styles.alt_image} width={width} height={height} draggable={draggable} alt={alt_text()} />

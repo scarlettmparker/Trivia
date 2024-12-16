@@ -1,4 +1,5 @@
 #include "session.hpp"
+#include <time.h>
 
 using namespace postgres;
 class SessionHandler : public RequestHandler {
@@ -12,21 +13,19 @@ class SessionHandler : public RequestHandler {
       /**
        * -------------- VALIDATE SESSION --------------
        */
-      std::string session_id = request::get_session_id_from_cookie(req);
-      if (session_id.empty()) {
+
+      std::string_view session_id = request::get_session_id_from_cookie(req);
+      if (session_id.empty())
         return request::make_unauthorized_response("Invalid or expired session", req);
-      }
 
       request::UserData user_data = request::select_user_data_from_session(session_id, 0);
-      if (user_data.user_id == -1) {
+      if (user_data.user_id == -1)
         return request::make_unauthorized_response("Invalid or expired session", req);
-      }
 
-      auto superuser_opt = request::parse_from_request(req, "superuser");
-      std::string superuser = *superuser_opt;
+      std::optional<std::string> superuser_opt = request::parse_from_request(req, "superuser");
       nlohmann::json response_json;
 
-      if (superuser != "true") {
+      if (!superuser_opt.has_value() || (superuser_opt.has_value() && superuser_opt.value() != "true")) {
         response_json["message"] = "Session validated successfully";
         response_json["user_id"] = user_data.user_id;
         response_json["username"] = user_data.username;

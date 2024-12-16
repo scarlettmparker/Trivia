@@ -43,14 +43,14 @@ namespace request {
   extern size_t MAX_CACHE_SIZE;
   extern int CACHE_TTL_SECONDS;
   extern std::mutex cache_mutex;
-  extern std::unordered_map<std::string, CachedUserData> session_cache;
+  extern std::unordered_map<std::string_view, CachedUserData> session_cache;
 
   /* session nonsense */
   void cleanup_cache();
-  void invalidate_session(const std::string& session_id, int verbose);
+  void invalidate_session(const std::string_view& session_id, int verbose);
   UserPermissions get_user_permissions(int user_id, int verbose);
-  std::string get_session_id_from_cookie(const http::request<http::string_body>& req);
-  UserData select_user_data_from_session(const std::string& session_id, int verbose);
+  std::string_view get_session_id_from_cookie(const http::request<http::string_body>& req);
+  UserData select_user_data_from_session(const std::string_view& session_id, int verbose);
 
   std::map<std::string, std::string> parse_query_string(std::string_view query);
   std::optional<std::string> parse_from_request(const http::request<http::string_body>& req, const std::string& parameter);
