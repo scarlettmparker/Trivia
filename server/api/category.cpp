@@ -140,9 +140,9 @@ class CategoryHandler : public RequestHandler {
     return "/api/category";
   }
 
-  http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
+  http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {  
     if (middleware::rate_limited(ip_address))
-      return request::make_bad_request_response("Rate limited", req);
+      return request::make_too_many_requests_response("Too many requests", req);
 
     std::string_view session_id = request::get_session_id_from_cookie(req);
     int user_id = request::select_user_data_from_session(session_id, 0).user_id;
@@ -187,6 +187,7 @@ class CategoryHandler : public RequestHandler {
       if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 2))
         return request::make_unauthorized_response("Unauthorized", req);
 
+      // validate page and page_size, check they are integers
       try {
         pages_int = std::stoi(pages);
         offset_int = std::stoi(offset);
@@ -199,7 +200,9 @@ class CategoryHandler : public RequestHandler {
       nlohmann::json response_json;
       CategoryData category_data = get_category_data(pages_int, offset_int, 0);
       if (category_data.count == 0) {
-        return request::make_bad_request_response("No categories found", req);
+          response_json["message"] = "No categories found";
+          response_json["categories"] = nlohmann::json::array();
+          return request::make_ok_request_response(response_json.dump(4), req);
       }
 
       response_json["message"] = "Categories fetched successfully";

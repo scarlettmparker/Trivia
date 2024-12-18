@@ -1,5 +1,4 @@
-import { UserData, CacheData, ENV, CACHE_KEY, SuperUserData } from "~/const";
-import { Navigator } from '@solidjs/router';
+import { UserData, CacheData, ENV, CACHE_KEY, BASE_DELAY, MAX_RETRIES, SuperUserData, SuperCacheData } from "~/const";
 
 /**
  * Delay the execution of the function.
@@ -30,8 +29,6 @@ function get_cached_user_data(CACHE_DURATION: number, CACHE_KEY: string): UserDa
  * @returns UserData object.
  */
 async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
-  const MAX_RETRIES = 3;
-  const BASE_DELAY = 1000;
   const REQUEST_TIMEOUT = 1000;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -78,15 +75,30 @@ async function fetch_user_data(CACHE_KEY: string): Promise<UserData | null> {
 }
 
 /**
+ * Get the superuser data from the cache.
+ * @returns SuperUserData object.
+ */
+function get_cached_superuser_data(CACHE_DURATION: number, CACHE_KEY: string): SuperUserData | null {
+  const cached_data = localStorage.getItem(CACHE_KEY);
+
+  if (!cached_data) return null;
+
+  const cache: SuperCacheData = JSON.parse(cached_data);
+  if (Date.now() - cache.timestamp < CACHE_DURATION) {
+    return cache.data;
+  }
+
+  return null;
+}
+
+/**
  * Fetch the superuser data from the server.
  * This function sends a GET request to the server to get the superuser data.
  * It will return a boolean for "superuser" along with the regular user data.
  * This is to ensure that normal users cannot access the admin panel.
  * @returns SuperUserData object.
  */
-async function fetch_superuser_data(): Promise<SuperUserData | null> {
-  const MAX_RETRIES = 3;
-  const BASE_DELAY = 1000;
+async function fetch_superuser_data(CACHE_KEY: string): Promise<SuperUserData | null> {
   const REQUEST_TIMEOUT = 1000;
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -113,6 +125,10 @@ async function fetch_superuser_data(): Promise<SuperUserData | null> {
       const data = await response.json();
       if (data.status == 'ok') {
         const user_data = data.message as SuperUserData;
+        localStorage.setItem(
+          CACHE_KEY,
+          JSON.stringify({ data: user_data, timestamp: Date.now() })
+        );
         return user_data;
       }
     } catch (error) {
@@ -146,8 +162,11 @@ export async function get_user_data_from_session(CACHE_DURATION: number, CACHE_K
  * Get the superuser data from the session.
  * @returns SuperUserData object containing username, user ID, and superuser status.
  */
-export async function get_superuser_data_from_session(): Promise<SuperUserData> {
-  const fetched_data = await fetch_superuser_data();
+export async function get_superuser_data_from_session(CACHE_DURATION: number, CACHE_KEY: string): Promise<SuperUserData> {
+  const cached_data = get_cached_superuser_data(CACHE_DURATION, CACHE_KEY);
+  if (cached_data) return cached_data;
+
+  const fetched_data = await fetch_superuser_data(CACHE_KEY);
   if (fetched_data) return fetched_data;
 
   return { user_id: -1, username: "", superuser: false};

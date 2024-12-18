@@ -88,7 +88,7 @@ class QuestionHandler : public RequestHandler {
 
   http::response<http::string_body> handle_request(http::request<http::string_body> const& req, const std::string& ip_address) {
     if (middleware::rate_limited(ip_address))
-      return request::make_bad_request_response("Rate limited", req);
+      return request::make_too_many_requests_response("Too many requests", req);
 
     std::string_view session_id = request::get_session_id_from_cookie(req);
     int user_id = request::select_user_data_from_session(session_id, 0).user_id;

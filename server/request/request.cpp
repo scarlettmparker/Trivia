@@ -274,6 +274,30 @@ namespace request {
   }
 
   /**
+   * Create a too many requests response with a given message.
+   * @param message Message to include in the response.
+   * @param req Request that caused the error.
+   * @return Response with the given message.
+   */
+  http::response<http::string_body> make_too_many_requests_response(
+    const std::string& message, const http::request<http::string_body>& req) {
+    
+    http::response<http::string_body> res{http::status::too_many_requests, req.version()};
+    res.set(http::field::server, "Beast");
+    res.set(http::field::content_type, "application/json");
+
+    nlohmann::json error_response = {
+        {"status", "error"},
+        {"message", message}
+    };
+
+    res.body() = error_response.dump();
+    res.keep_alive(req.keep_alive());
+    res.prepare_payload();
+    return res;
+  }
+
+  /**
    * Create an OK request response with a given message.
    * @param message Message to include in the response.
    * @param req Request that caused the error.

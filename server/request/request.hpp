@@ -58,6 +58,7 @@ namespace request {
   /* request responses */
   http::response<http::string_body> make_unauthorized_response(const std::string& message, const http::request<http::string_body>& req);
   http::response<http::string_body> make_bad_request_response(const std::string& message, const http::request<http::string_body>& req);
+  http::response<http::string_body> make_too_many_requests_response(const std::string& message, const http::request<http::string_body>& req);
   http::response<http::string_body> make_ok_request_response(const std::string& message, const http::request<http::string_body>& req);
 }
 #endif
