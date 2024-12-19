@@ -1,11 +1,7 @@
 import ButtonWithAlt from '../ButtonWithAlt';
 import styles from './category.module.css';
 
-interface CategoryProps {
-  category_name: string
-}
-
-const Category = ({ category_name }: CategoryProps) => {
+const Category = ({ category_name }: { category_name: string }) => {
   const FAVOURITE_SIZE = 16;
   const EXPAND_WIDTH = 20;
   const EXPAND_HEIGHT = 16;

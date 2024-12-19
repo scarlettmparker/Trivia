@@ -1,4 +1,5 @@
 import { useUser } from "~/usercontext";
+import WelcomeMessageProps from "./welcomemessageprops";
 import styles from './welcomemessage.module.css';
 
 /**
@@ -9,11 +10,6 @@ import styles from './welcomemessage.module.css';
 function get_local_time() {
   const hours = new Date().getHours();
   return hours;
-}
-
-interface WelcomeMessageProps {
-  class?: string;
-  admin?: boolean;
 }
 
 const WelcomeMessage = ({ class: class_, admin }: WelcomeMessageProps) => {

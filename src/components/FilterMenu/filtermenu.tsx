@@ -1,23 +1,17 @@
-import { Accessor } from 'solid-js';
 import ButtonWithAlt from '~/components/ButtonWithAlt';
 import styles from './filtermenu.module.css';
+import FilterMenuProps from './filtermenuprops';
 
-interface FilterMenuProps {
-  filter: Accessor<number>;
-  setFilter: (filter: number) => void;
-}
-
+/**
+ * Get the next element in the array of filters.
+ * @param curr_index Current index in the array.
+ * @param direction Direction to move in the array.
+ * @param map_size Size of the array.
+ * @returns Next index in the array.
+ */
 function get_next_elem(curr_index: number, direction: number, map_size: number) {
   return (curr_index + direction + map_size) % map_size;
 }
-
-const filters = [
-  "A-Z",
-  "Recent",
-  "Z-A"
-];
-
-const BUTTON_SIZE = 18;
 
 /**
  * Filter menu component. This allows the user to filter between sorts of the categories.
@@ -25,7 +19,14 @@ const BUTTON_SIZE = 18;
  * @param setFilter Setter for the current filter value.
  * @returns JSX Element - filter menu with two alt-text buttons, one on either side
  */
-const FilterMenu = ({filter, setFilter}: FilterMenuProps) => {
+const FilterMenu = ({ filter, setFilter }: FilterMenuProps) => {
+  const filters = [
+    "A-Z",
+    "Recent",
+    "Z-A"
+  ];
+
+  const BUTTON_SIZE = 18;
   const map_size = filters.length;
 
   const handle_prev = () => {

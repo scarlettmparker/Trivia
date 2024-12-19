@@ -1,0 +1,28 @@
+.list_component,
+.list_component_selected {
+  display: flex;
+  align-items: center;
+  height: 45px;
+  width: 97.5%;
+
+  font-size: 20px;
+  border: 1px solid #C0C0C0;
+  border-radius: 15px;
+  padding-left: 20px;
+
+  user-select: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+}
+
+.list_component:hover {
+  background-color: #eaeaea;
+  color: #D95597;
+  font-weight: 400;
+}
+
+.list_component_selected {
+  background-color: rgba(39, 33, 33, 0.9);
+  font-weight: 400;
+  color: white;
+}

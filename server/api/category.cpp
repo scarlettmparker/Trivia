@@ -135,6 +135,101 @@ class CategoryHandler : public RequestHandler {
     return 0;
   }
 
+  /**
+   * Handle a request to fetch a single category. This function is
+   * used to fetch a single category by name.
+   *
+   * @param req HTTP request object.
+   * @param user_id ID of the user making the request.
+   * @param category_name Name of the category to fetch.
+   * @return HTTP response object.
+   */
+  http::response<http::string_body> handle_single_category(const http::request<http::string_body>& req,
+    int user_id, const std::string& category_name) {
+    std::string* required_permissions = new std::string[1]{"category.admin"};
+    if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
+      return request::make_unauthorized_response("Unauthorized", req);
+    delete[] required_permissions;
+
+    parser::Category cat = parser::parse_category("../questions/", category_name.c_str());
+    if (strncmp(cat.category, "NO_CATEGORY", 10) == 0)
+      return request::make_bad_request_response("Category not found", req);
+    return request::make_ok_request_response(parser::fetch_category(cat).dump(), req);
+  }
+
+  /**
+   * Handle a request to list categories. This function is used to
+   * list all categories for use in the admin panel.
+   * 
+   * @param req HTTP request object.
+   * @param user_id ID of the user making the request.
+   * @param page_size Number of categories to fetch.
+   * @param offset Offset to start fetching categories from.
+   * @return HTTP response object.
+   */
+  http::response<http::string_body> handle_category_list(const http::request<http::string_body>& req, int user_id,
+    const std::string& page_size, const std::optional<std::string>& offset) {
+    std::string* required_permissions = new std::string[2]{"superuser", "category.admin"};
+    if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 2))
+      return request::make_unauthorized_response("Unauthorized", req);
+    delete[] required_permissions;
+
+    int pages_int, offset_int = 0;
+    if (offset.has_value() && !validate_pagination_params(page_size, offset.value(), pages_int, offset_int)) {
+      return request::make_bad_request_response("Invalid request: 'page_size|page' invalid.", req);
+    }
+
+    if (!offset.has_value()) {
+      try {
+        pages_int = std::stoi(page_size);
+      } catch (...) {
+        return request::make_bad_request_response("Invalid request: 'page_size' must be an integer.", req);
+      }
+    }
+
+    nlohmann::json response_json;
+    CategoryData category_data = get_category_data(pages_int, offset_int, 0);
+    
+    if (category_data.count == 0) {
+      response_json["message"] = "No categories found";
+      response_json["categories"] = nlohmann::json::array();
+      return request::make_ok_request_response(response_json.dump(4), req);
+    }
+
+    response_json["message"] = "Categories fetched successfully";
+    response_json["categories"] = nlohmann::json::array();
+
+    for (int i = 0; i < category_data.count; ++i) {
+      response_json["categories"].push_back({
+        {"category_name", category_data.categories[i].category_name},
+        {"id", category_data.categories[i].id}
+      });
+    }
+
+    delete[] category_data.categories;
+    return request::make_ok_request_response(response_json.dump(4), req);
+  }
+
+  /**
+   * Validate pagination parameters. This function checks if the page size and offset are valid integers.
+   * @param page_size Page size to validate.
+   * @param offset Offset to validate.
+   * @param pages_int Reference to store the page size as an integer.
+   * @param offset_int Reference to store the offset as an integer.
+   * @return 1 if the parameters are valid, 0 otherwise.
+   */
+  int validate_pagination_params(const std::string& page_size, const std::string& offset, int& pages_int, int& offset_int) {
+    try {
+      pages_int = std::stoi(page_size);
+      offset_int = std::stoi(offset);
+      return 1;
+    } catch (const std::invalid_argument& e) {
+      return 0;
+    } catch (const std::out_of_range& e) {
+      return 0;
+    }
+  }
+
   public:
   std::string get_endpoint() const override {
     return "/api/category";
@@ -147,77 +242,20 @@ class CategoryHandler : public RequestHandler {
     std::string_view session_id = request::get_session_id_from_cookie(req);
     int user_id = request::select_user_data_from_session(session_id, 0).user_id;
     if (req.method() == http::verb::get) {
-      /**
-       * -------------- GET CATEGORY --------------
-       */
-
       std::optional<std::string> category_opt = request::parse_from_request(req, "category_name");
-
-      // admin category stuff to get all category data
       if (category_opt.has_value()) {
-        std::string * required_permissions = new std::string[1]{"category.admin"};
-        if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 1))
-          return request::make_unauthorized_response("Unauthorized", req);
-
-        auto& category = category_opt.value();
-        parser::Category cat = parser::parse_category("../questions/", category.c_str());
-        if (strncmp(cat.category, "NO_CATEGORY", 10) == 0)
-          return request::make_bad_request_response("Category not found", req);
-        return request::make_ok_request_response(parser::fetch_category(cat).dump(), req);
+        return handle_single_category(req, user_id, category_opt.value());
       }
 
       std::optional<std::string> superuser_opt = request::parse_from_request(req, "superuser");
       std::optional<std::string> pages_opt = request::parse_from_request(req, "page_size");
       std::optional<std::string> offset_opt = request::parse_from_request(req, "page");
 
-      // deal with params in query, if no offset default to 0
-      int offset_int;
-      if (!superuser_opt.has_value() || (superuser_opt.has_value() && superuser_opt.value() != "true"))
+      if (!superuser_opt.has_value() || superuser_opt.value() != "true")
         return request::make_bad_request_response("Endpoint not implemented", req);
-      if (!pages_opt.has_value()) 
+      if (!pages_opt.has_value())
         return request::make_bad_request_response("Invalid request: Missing required field (page_size).", req);
-      if (!offset_opt.has_value())
-        offset_int = 0;
-
-      auto& pages = pages_opt.value();
-      auto& offset = offset_opt.value();
-      int pages_int;
-      
-      std::string * required_permissions = new std::string[2]{"superuser", "category.admin"};
-      if (!middleware::check_permissions(request::get_user_permissions(user_id, 0), required_permissions, 2))
-        return request::make_unauthorized_response("Unauthorized", req);
-
-      // validate page and page_size, check they are integers
-      try {
-        pages_int = std::stoi(pages);
-        offset_int = std::stoi(offset);
-      } catch (const std::invalid_argument& e) {
-        return request::make_bad_request_response("Invalid request: 'page_size|page' must be an integer.", req);
-      } catch (const std::out_of_range& e) {
-        return request::make_bad_request_response("Invalid request: 'page_size|page' value out of range.", req);
-      }
-      
-      nlohmann::json response_json;
-      CategoryData category_data = get_category_data(pages_int, offset_int, 0);
-      if (category_data.count == 0) {
-          response_json["message"] = "No categories found";
-          response_json["categories"] = nlohmann::json::array();
-          return request::make_ok_request_response(response_json.dump(4), req);
-      }
-
-      response_json["message"] = "Categories fetched successfully";
-      response_json["categories"] = nlohmann::json::array();
-
-      // fill response with category data
-      for (int i = 0; i < category_data.count; ++i) {
-        nlohmann::json category;
-        category["category_name"] = category_data.categories[i].category_name;
-        category["id"] = category_data.categories[i].id;
-        response_json["categories"].push_back(category);
-      }
-
-      delete[] category_data.categories;
-      return request::make_ok_request_response(response_json.dump(4), req);
+      return handle_category_list(req, user_id, pages_opt.value(), offset_opt);
     } else if (req.method() == http::verb::put) {
       /**
         * -------------- PUT NEW CATEGORY --------------

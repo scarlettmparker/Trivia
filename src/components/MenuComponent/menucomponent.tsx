@@ -1,9 +1,4 @@
-interface MenuComponentProps {
-  name: string;
-  class?: () => string;
-  onclick?: (e: MouseEvent) => void;
-  onmouseover?: (e: MouseEvent) => void;
-}
+import MenuComponentProps from "./menucomponentprops";
 
 const MenuComponent = ({ name, class: class_, onclick: onclick_, onmouseover: onmouseover_ }: MenuComponentProps) => {
   return (

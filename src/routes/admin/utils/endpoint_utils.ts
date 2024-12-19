@@ -1,5 +1,5 @@
 import { ENV } from "~/const";
-import { Category } from "./const";
+import { CACHE_TIMEOUT, Category, CategoryData, memory_cache } from "./const";
 
 /**
  * Helper function to insert a question into the database.
@@ -18,7 +18,6 @@ async function insert_question(question: string, answers: string[], category_id:
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
         'Connection': 'keep-alive',
       },
       credentials: 'include',
@@ -35,6 +34,62 @@ async function insert_question(question: string, answers: string[], category_id:
   return data.message;
 }
 
+
+/**
+ * Build a search index for the categories.
+ * This is used to search for categories by name in the admin panel.
+ * 
+ * @param categories List of categories to build the search index from.
+ * @returns Search index for the categories.
+ */
+function build_search_index(categories: Category[]): { [key: string]: number[] } {
+  const search_index: { [key: string]: number[] } = {};
+
+  categories.forEach(category => {
+    const words = category.category_name.toLowerCase().split(' ');
+    words.forEach(word => {
+      if (!search_index[word]) {
+        search_index[word] = [];
+      }
+      if (!search_index[word].includes(category.id)) {
+        search_index[word].push(category.id);
+      }
+    });
+  });
+
+  return search_index;
+}
+
+/**
+ * Helper function to create the category data object.
+ * This is used to display the categories in the admin panel, and
+ * ensure the data is cached to minimize the number of API calls.
+ * 
+ * @param categories List of categories to create the data object from.
+ * @returns Category data object.
+ */
+function create_category_data(categories: Category[]): CategoryData {
+  const category_name_map = new Map(
+    categories.map(c => [c.id, c.category_name.toLowerCase()])
+  );
+
+  const ids = categories.map(c => c.id);
+  return {
+    default: categories,
+    filters: {
+      newest: [...ids].sort((a, b) => b - a),
+      oldest: [...ids].sort((a, b) => a - b),
+      "a-z": [...ids].sort((a, b) => 
+        category_name_map.get(a)!.localeCompare(category_name_map.get(b)!)
+      ),
+      "z-a": [...ids].sort((a, b) => 
+        category_name_map.get(b)!.localeCompare(category_name_map.get(a)!)
+      )
+    },
+    search: build_search_index(categories)
+  };
+}
+
 /**
  * Helper function to fetch categories from the server.
  * Requires permission superuser or category.admin to be retrieved.
@@ -45,11 +100,10 @@ async function insert_question(question: string, answers: string[], category_id:
  * @param page_number Page number to retrieve.
  * @returns List of categories with their ids.
  */
-async function fetch_categories(page_size: number, page_number: number, CATEGORIES_KEY: string): Promise<Category[] | null> {
-  const has_new_data = await get_last_modified("Category", "CATEGORY_LAST_MODIFIED");
-
-  if (!has_new_data && localStorage.getItem(CATEGORIES_KEY)) {
-    return JSON.parse(localStorage.getItem(CATEGORIES_KEY)!);
+async function fetch_categories(page_size: number, page_number: number, CATEGORIES_KEY: string): Promise<CategoryData | null> {
+  const new_data = await get_last_modified("Category", "CATEGORY_LAST_MODIFIED");
+  if (!new_data && localStorage.getItem(CATEGORIES_KEY)) {
+      return JSON.parse(localStorage.getItem(CATEGORIES_KEY)!);
   }
 
   const response = await fetch(
@@ -57,24 +111,22 @@ async function fetch_categories(page_size: number, page_number: number, CATEGORI
     {
       method: 'GET',
       headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
         'Connection': 'keep-alive',
       },
       credentials: 'include',
     }
-  )
+  );
 
   const data = await response.json();
-  if (data.message == "No categories found")
+  if (data.message === "No categories found")
     return null;
 
-  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(data.message.categories));
-  return data.message.categories;
-}
+  const categories = data.message.categories;
+  const category_data = create_category_data(categories);
 
-const CACHE_TIMEOUT = 5000;
-const memory_cache: { [key: string]: { value: string; timestamp: number } } = {};
+  localStorage.setItem(CATEGORIES_KEY, JSON.stringify(category_data));
+  return category_data;
+}
 
 /**
  * Helper function to check if the data in the database has been modified since the last time it was fetched.
@@ -99,8 +151,7 @@ async function get_last_modified(table_name: string, LAST_MODIFIED_KEY: string):
       {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json',
-          'Access-Control-Allow-Origin': '*',
+          'Connection': 'keep-alive',
         },
         signal: controller.signal,
         credentials: 'include',
@@ -137,9 +188,15 @@ async function get_last_modified(table_name: string, LAST_MODIFIED_KEY: string):
   }
 }
 
-async function get_categories(page_size: number, page_number: number): Promise<Category[]> {
+/**
+ * Gets the categories from the server or from the cache.
+ * @param page_size Number of categories to retrieve.
+ * @param page_number Page number to retrieve.
+ * @returns Category data object.
+ */
+async function get_categories(page_size: number, page_number: number): Promise<CategoryData> {
   const categories = await fetch_categories(page_size, page_number, "CATEGORIES");
-  return categories ?? [];
+  return categories ?? { default: [], filters: { newest: [], oldest: [], "a-z": [], "z-a": [] }, search: {} };
 }
 
 /**

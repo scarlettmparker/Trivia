@@ -1,13 +1,9 @@
 import { useUser } from '~/usercontext';
-import styles from './navbar.module.css';
 import { logout } from '~/routes/utils/userutils';
 import { useNavigate } from '@solidjs/router';
+import styles from './navbar.module.css';
 
-interface NavbarProps {
-  placeholder?: boolean;
-}
-
-const Navbar = ({ placeholder }: NavbarProps) => {
+const Navbar = ({ placeholder }: { placeholder?: boolean }) => {
   const { userId, setUserId, setUsername } = useUser();
   const navigate = useNavigate();
 

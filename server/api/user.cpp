@@ -144,14 +144,11 @@ class UserHandler : public RequestHandler {
    * @return 1 if the user is authenticated, 0 otherwise.
    */
   int login(const char * username, const char * password) {
-    if (select_password(username, 0) == NULL) {
+    const char* stored_password = select_password(username, 0);
+    if (stored_password == NULL) {
       return 0;
     }
-    if (BCrypt::validatePassword(password, select_password(username, 0))) {
-      return 1;
-    } else {
-      return 0;
-    }
+    return BCrypt::validatePassword(password, stored_password) ? 1 : 0;
   }
 
   public:

@@ -100,7 +100,7 @@
 }
 
 .search_bar {
-  height: 52px;
+  height: 42px;
   outline: none;
   padding-left: 20px;
   border-radius: 20px;
@@ -125,12 +125,15 @@
 
 .result_wrapper {
   display: flex;
+  align-items: center;
   flex-direction: column;
+  gap: 20px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: rgba(255, 255, 255, 0.4);
 
-  height: calc(100% - 180px);
-  padding: 45px;
+  height: calc(100% - 200px);
+  padding: 35px 45px 45px 45px;
 
   border-radius: 20px;
   border: 1px solid #C0C0C0;

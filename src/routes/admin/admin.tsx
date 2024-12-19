@@ -1,9 +1,9 @@
-import { Component, createEffect, createSignal, onMount, Show } from "solid-js";
+import { Component, createEffect, createSignal, JSX, onMount, Show } from "solid-js";
 import { Title } from "@solidjs/meta";
 import { useUser } from "~/usercontext";
 import { CACHE_DURATION, SUPER_CACHE_KEY } from "~/const";
 import { get_superuser_data_from_session } from "../utils/userutils";
-import { Category } from "./utils/const";
+import { Category, CategoryData } from "./utils/const";
 import { get_data } from "./utils/endpoint_utils";
 
 import WelcomeMessage from "~/components/WelcomeMessage";
@@ -11,6 +11,7 @@ import Navbar from "~/components/Navbar";
 import styles from './admin.module.css';
 import AdminPlaceHolder from "~/components/AdminPlaceholder";
 import MenuComponent from "~/components/MenuComponent";
+import ListComponent from "~/components/ListComponent";
 
 /*
 TODO AND NOTES FOR IMPROVEMENTS
@@ -29,6 +30,7 @@ const Admin: Component = () => {
   const [page, setPage] = createSignal(0);
 
   const [categories, setCategories] = createSignal<Category[]>([]);
+  const [currentlistmenu, setCurrentlistmenu] = createSignal(-1);
 
   const menus = ["User", "Question", "Category", "Permission"]; // place holder, will be taken from server at some point
   const PAGE_SIZE = 7;
@@ -48,6 +50,10 @@ const Admin: Component = () => {
     setLoading(false);
   })
 
+  createEffect(() => {
+    /* when menu changes, do something */
+  })
+
   return (
     <>
       <Title>Trivia | Admin</Title>
@@ -59,11 +65,16 @@ const Admin: Component = () => {
               <WelcomeMessage class={styles.welcome_message} admin={true} />
               {menus.map((menu: string, idx: number) => (
                 <MenuComponent name={menu} class={() => idx == currentmenu() ? styles.menu_item_selected
-                  : styles.menu_item} onclick={(e: MouseEvent) => { e.stopPropagation(); setCurrentmenu(idx) }}
+                  : styles.menu_item} onclick={(e: MouseEvent) => { 
+                    e.stopPropagation(); 
+                    setCurrentmenu(idx);
+                    setCurrentlistmenu(-1); 
+                  }}
                   onmouseover={async () => {
                     if (idx == 2 && categories().length === 0) {
-                      const result = await get_data(idx, PAGE_SIZE, page());
-                      setCategories(result as Category[]);
+                      const result = await get_data(idx, PAGE_SIZE, page()).then((data) => data as CategoryData);
+                      const categories = result.default;
+                      setCategories(categories as Category[]);
                     }
                   }} />
               ))}
@@ -85,9 +96,12 @@ const Admin: Component = () => {
                               {categories().length === 0 ? (
                                 <span>No categories found</span>
                               ) : (
-                                categories().map((category: Category) => (
-                                  <ListComponent name={category.category_name} id={category.id} class={styles.list_item} />
-                                ))
+                                <MenuDataComponent items={categories()}>
+                                  {(category) => (
+                                    <ListComponent name={category.category_name} id={category.id}
+                                      currentmenu={currentlistmenu} onclick={() => setCurrentlistmenu(category.id)} />
+                                  )}
+                                </MenuDataComponent>
                               )}
                             </>
                           );
@@ -111,19 +125,35 @@ const Admin: Component = () => {
   )
 }
 
-interface ListComponentProps {
-  name: string;
+// will not be final, just a placeholder for now
+interface User {
+  username: string;
   id: number;
-  class?: string;
-  onclick?: (e: MouseEvent) => void;
 }
 
-const ListComponent = ({ name, id, class: class_, onclick: onclick_ }: ListComponentProps) => {
-  return (
-    <div class={class_} onclick={onclick_}>
-      {name}
-    </div>
-  );
+interface Question {
+  question: string;
+  id: number;
 }
+
+interface Permission {
+  permission: string;
+  id: number;
+}
+
+type MenuItem = Category | User | Question | Permission;
+
+interface MenuDataProps<T extends MenuItem> {
+  items: T[];
+  children: (item: T) => JSX.Element;
+}
+
+const MenuDataComponent = <T extends MenuItem>({ items, children }: MenuDataProps<T>) => {
+  return (
+    <>
+      {items.map((item) => children(item))}
+    </>
+  );
+};
 
 export default Admin;
