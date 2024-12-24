@@ -4,16 +4,33 @@
 #include <pqxx/pqxx>
 #include <iostream>
 #include <sstream>
-#include <cstdio>
-#include <stdbool.h>
+#include <queue>
+#include <mutex>
+#include <condition_variable>
 
 #include "config.h"
 
 namespace postgres {
-  extern pqxx::connection * c;
-    
+  class ConnectionPool {
+  private:
+    std::queue<pqxx::connection*> pool;
+    std::mutex pool_mutex;
+    std::condition_variable pool_cv;
+    int max_size;
+
+  public:
+    explicit ConnectionPool(int size);
+    ~ConnectionPool();
+
+    ConnectionPool(const ConnectionPool&) = delete;
+    ConnectionPool& operator=(const ConnectionPool&) = delete;
+
+    pqxx::connection* acquire();
+    void release(pqxx::connection* conn);
+  };
+
   void init_connection();
-  void close_connection();
+  ConnectionPool& get_connection_pool();
 }
 
 #endif

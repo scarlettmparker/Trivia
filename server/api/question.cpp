@@ -11,9 +11,14 @@ class QuestionHandler : public RequestHandler {
    * @return ID of the question if found, 0 otherwise.
    */
   int select_question(int question_id, int verbose) {
-    try{
+    try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_question", question_id);
+      txn.commit();
+      pool.release(c);
+
       if (r.empty()) {
         std::cout << "Question with ID " << question_id << " not found" << std::endl;
         return 0;
@@ -40,9 +45,12 @@ class QuestionHandler : public RequestHandler {
   int create_question(const char * question, std::vector<std::string> answers,
     int correct_answer, int category_id, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("create_question", question, answers, correct_answer, category_id);
       txn.commit();
+      pool.release(c);
 
       verbose && std::cout << "Successfully created question " << question << std::endl;
       return 1;
@@ -62,9 +70,12 @@ class QuestionHandler : public RequestHandler {
    */
   int delete_question(int question_id, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("delete_question", question_id);
       txn.commit();
+      pool.release(c);
 
       if (!r.empty()) {
         verbose && std::cout << "Successfully deleted question with ID " << question_id << std::endl;
@@ -197,16 +208,5 @@ class QuestionHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_question_handler() {
-  pqxx::work txn(*c);
-
-  txn.conn().prepare("select_question", 
-    "SELECT id FROM public.\"Question\" WHERE id = $1 LIMIT 1;");
-  txn.conn().prepare("create_question", 
-    "INSERT INTO public.\"Question\" (question, answers, correct_answer, category_id) "
-    "VALUES ($1, $2, $3, $4);");
-  txn.conn().prepare("delete_question", 
-    "DELETE FROM public.\"Question\" WHERE id = $1 RETURNING id;");
-
-  txn.commit();
   return new QuestionHandler();
 }

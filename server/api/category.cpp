@@ -22,8 +22,13 @@ class CategoryHandler : public RequestHandler {
   */
   int select_category(const std::string& category_name, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_category", category_name);
+      txn.commit();
+      pool.release(c);
+
       if (r.empty()) {
         verbose && std::cout << "Category " << category_name << " not found" << std::endl;
         return 0;
@@ -47,8 +52,13 @@ class CategoryHandler : public RequestHandler {
    */
   CategoryData get_category_data(int limit, int offset, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_category_names_pagington", limit, offset * limit);
+      txn.commit();
+      pool.release(c);
+
       int count = r.size();
       if (count == 0)
           return {nullptr, 0};
@@ -84,9 +94,12 @@ class CategoryHandler : public RequestHandler {
   */
   int create_category(const char * category_name, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("create_category", category_name);
       txn.commit();
+      pool.release(c);
 
       if (!r.empty()) {
         verbose && std::cout << "Successfully created category " << category_name << std::endl;
@@ -110,15 +123,13 @@ class CategoryHandler : public RequestHandler {
   * @return 1 if the category was deleted, 0 otherwise.
   */
   int delete_category(const char * category_name, int verbose) {
-    if (c == nullptr) {
-      verbose && std::cerr << "Database connection is not initialized" << std::endl;
-      return 0;
-    }
-
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("delete_category", category_name);
       txn.commit();
+      pool.release(c);
 
       if (!r.empty()) {
         verbose && std::cout << "Successfully deleted category with name " << category_name << std::endl;
@@ -314,16 +325,5 @@ class CategoryHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_category_handler() {
-  pqxx::work txn(*c);
-
-  txn.conn().prepare("select_category_names_pagington",
-    "SELECT category_name, id FROM public.\"Category\" ORDER BY category_name ASC LIMIT $1 OFFSET $2;");
-  txn.conn().prepare("create_category", 
-    "INSERT INTO public.\"Category\" (category_name) VALUES ($1) "
-    "ON CONFLICT (category_name) DO NOTHING RETURNING id;");
-  txn.conn().prepare("delete_category", 
-    "DELETE FROM public.\"Category\" WHERE category_name = $1 RETURNING id;");
-    
-  txn.commit();
   return new CategoryHandler();
 }

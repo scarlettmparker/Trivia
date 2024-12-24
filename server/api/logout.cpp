@@ -14,9 +14,13 @@ class LogoutHandler : public RequestHandler {
    */
   int select_user_id_from_session(std::string_view session_id, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_user_id_from_session", session_id);
       txn.commit();
+      pool.release(c);
+      
       if (r.empty()) {
         verbose && std::cerr << "Session ID " << session_id << " not found" << std::endl;
         return -1;

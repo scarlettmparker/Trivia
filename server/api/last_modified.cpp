@@ -15,10 +15,13 @@ class LastModifiedHandler : public RequestHandler {
    */
   std::string select_last_modified(const std::string& table_name, int verbose) {
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       std::string last_modified = txn.query_value<std::string>(build_query(table_name));
       txn.commit();
-
+      pool.release(c);
+      
       if (last_modified.empty()) {
         verbose && std::cerr << "Table " << table_name << " not found" << std::endl;
         return "";

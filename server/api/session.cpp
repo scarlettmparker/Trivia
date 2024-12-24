@@ -49,18 +49,5 @@ class SessionHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_session_handler() {
-  pqxx::work txn(*c);
-
-  txn.conn().prepare("select_user_id_from_session",
-    "SELECT user_id FROM public.\"Sessions\" WHERE id = $1 AND expires_at > NOW() AND active = TRUE LIMIT 1;");
-  txn.conn().prepare("select_user_data_from_session",
-    "SELECT user_id, username FROM public.\"Sessions\" WHERE id = $1 AND expires_at > NOW() AND active = TRUE LIMIT 1;");
-  txn.conn().prepare("invalidate_session",
-    "UPDATE public.\"Sessions\" SET active = FALSE WHERE id = $1;");
-  txn.conn().prepare("get_user_permissions",
-    "SELECT p.id, p.permission_name FROM public.\"UserPermissions\" up "
-    "JOIN public.\"Permissions\" p ON up.permission_id = p.id WHERE up.user_id = $1;");
-
-  txn.commit();
   return new SessionHandler();
 }

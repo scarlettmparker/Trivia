@@ -32,7 +32,10 @@ const Admin: Component = () => {
   const [categories, setCategories] = createSignal<Category[]>([]);
   const [currentlistmenu, setCurrentlistmenu] = createSignal(-1);
 
-  const menus = ["User", "Question", "Category", "Permission"]; // place holder, will be taken from server at some point
+  /* placeholders, will be replaced with actual data soon */
+  const menus = ["User", "Question", "Category", "Permission"];
+  const category_permissions = ["Create", "Update", "Delete"];
+  
   const PAGE_SIZE = 7;
 
 

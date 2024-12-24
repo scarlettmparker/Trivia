@@ -44,9 +44,13 @@ namespace request {
     std::lock_guard<std::mutex> lock(cache_mutex);
     session_cache.erase(session_id);
     try {
-      pqxx::work txn(*postgres::c);
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
+      pqxx::work txn(*c);
       txn.exec_prepared("invalidate_session", session_id);
       txn.commit();
+      pool.release(c);
+
     } catch (const std::exception &e) {
       verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
     } catch (...) {
@@ -64,9 +68,12 @@ namespace request {
   UserPermissions get_user_permissions(int user_id, int verbose) {
     UserPermissions result = {0, nullptr};
     try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("get_user_permissions", user_id);
       txn.commit();
+      pool.release(c);
 
       if (r.empty()) {
         verbose && std::cerr << "User with ID " << user_id << " not found" << std::endl;
@@ -135,9 +142,12 @@ namespace request {
     }
 
     try {
-      pqxx::work txn(*postgres::c);
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
+      pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_user_data_from_session", session_id);
       txn.commit();
+      pool.release(c);
 
       if (r.empty()) {
         verbose && std::cerr << "Session ID " << session_id << " not found" << std::endl;

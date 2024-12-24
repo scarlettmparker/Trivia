@@ -51,10 +51,14 @@ class UserHandler : public RequestHandler {
    * @return 1 if the session ID was set, 0 otherwise.
    */
   int set_session_id(std::string session_id, int user_id, std::string username, int duration, std::string ip_address, int verbose) {
-    try{
+    try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       txn.exec_prepared("set_session_id", session_id, user_id, username, duration, ip_address);
       txn.commit();
+      pool.release(c);
+
       return 1;
     } catch (const std:: exception &e) {
       verbose && std::cerr << "Error executing query: " << e.what() << std::endl;
@@ -72,8 +76,13 @@ class UserHandler : public RequestHandler {
    */
   int select_user_id(const char * username, int verbose) {
     try{
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_user_id", username);
+      txn.commit();
+      pool.release(c);
+
       if (r.empty()) {
         verbose && std::cout << "User with username " << username << " not found" << std::endl;
         return -1;
@@ -95,9 +104,14 @@ class UserHandler : public RequestHandler {
    * @return Username of the user if found, NULL otherwise.
    */
   std::string select_username_from_id(int id, int verbose) {
-    try{
+    try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_username_from_id", id);
+      txn.commit();
+      pool.release(c);
+
       if (r.empty()) {
         verbose && std::cout << "User with ID " << id << " not found" << std::endl;
         return NULL; 
@@ -118,9 +132,14 @@ class UserHandler : public RequestHandler {
    * @return (Hashed) password of the user if found, NULL otherwise.
    */
   const char * select_password(const char * username, int verbose) {
-    try{
+    try {
+      auto& pool = get_connection_pool();
+      auto c = pool.acquire();
       pqxx::work txn(*c);
       pqxx::result r = txn.exec_prepared("select_password", username);
+      txn.commit();
+      pool.release(c);
+
       if (r.empty()) {
         verbose && std::cout << "User with username " << username << " not found" << std::endl;
         return NULL;
@@ -144,7 +163,7 @@ class UserHandler : public RequestHandler {
    * @return 1 if the user is authenticated, 0 otherwise.
    */
   int login(const char * username, const char * password) {
-    const char* stored_password = select_password(username, 0);
+    const char* stored_password = select_password(username, 1);
     if (stored_password == NULL) {
       return 0;
     }
@@ -212,11 +231,11 @@ class UserHandler : public RequestHandler {
         return request::make_bad_request_response("Invalid username or password", req);
 
       // get user_id, generate session_id, set session_id, set session cookie
-      std::string session_id = generate_session_id(0);
-      int user_id = select_user_id(username, 0);
+      std::string session_id = generate_session_id(1);
+      int user_id = select_user_id(username, 1);
       int expires_at = 86400; // in seconds
 
-      if (!set_session_id(session_id, user_id, username, expires_at, ip_address, 0))
+      if (!set_session_id(session_id, user_id, username, expires_at, ip_address, 1))
         return request::make_bad_request_response("An unexpected error has occured.", req);
 
       return set_session_cookie(session_id);
@@ -227,22 +246,5 @@ class UserHandler : public RequestHandler {
 };
 
 extern "C" RequestHandler* create_user_handler() {
-  pqxx::work txn(*c);
-  
-  /* Session Queries */
-  txn.conn().prepare("set_session_id",
-    "INSERT INTO public.\"Sessions\" (id, user_id, username, created_at, last_accessed, expires_at, ip_address, active) "
-    "VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + ($4 || ' seconds')::interval, $5, TRUE) "
-    "RETURNING id;");
-
-  /* User Queries */
-  txn.conn().prepare("select_user_id",
-    "SELECT id from public.\"Users\" WHERE username = $1 LIMIT 1;");
-  txn.conn().prepare("select_username_from_id",
-    "SELECT username from public.\"Users\" WHERE id = $1 LIMIT 1;");
-  txn.conn().prepare("select_password", 
-    "SELECT password FROM public.\"Users\" WHERE username = $1 LIMIT 1;");
-    
-  txn.commit();
   return new UserHandler();
 }
