@@ -17,7 +17,9 @@ namespace postgres {
     std::mutex pool_mutex;
     std::condition_variable pool_cv;
     int max_size;
-
+    
+    pqxx::connection* create_new_connection();
+    int validate_connection(pqxx::connection* c);
   public:
     explicit ConnectionPool(int size);
     ~ConnectionPool();
@@ -26,7 +28,7 @@ namespace postgres {
     ConnectionPool& operator=(const ConnectionPool&) = delete;
 
     pqxx::connection* acquire();
-    void release(pqxx::connection* conn);
+    void release(pqxx::connection* c);
   };
 
   void init_connection();
